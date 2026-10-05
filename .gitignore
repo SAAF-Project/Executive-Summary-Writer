@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Generated summaries and local audit material — never commit real audit evidence
+output/
+data/
+
+# Original company instructions and skills — kept local, not published
+/prompts/*
+/skills/*
+!/skills/Skill description.md
+scripts/prompts_local.py
