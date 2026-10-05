@@ -1,4 +1,5 @@
 """Loads the audit material (draft report, observations, management responses) as Claude content blocks."""
+
 import base64
 from pathlib import Path
 from typing import Any, Dict, List
@@ -24,22 +25,32 @@ def load_material(paths: List[Path]) -> List[Dict[str, Any]]:
         suffix = path.suffix.lower()
         if suffix == ".pdf":
             data = base64.standard_b64encode(path.read_bytes()).decode("ascii")
-            blocks.append({
-                "type": "document",
-                "title": path.name,
-                "source": {"type": "base64", "media_type": "application/pdf", "data": data},
-            })
+            blocks.append(
+                {
+                    "type": "document",
+                    "title": path.name,
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": data,
+                    },
+                }
+            )
             continue
         if suffix in TEXT_SUFFIXES:
             text = path.read_text(encoding="utf-8", errors="ignore")
         elif suffix == ".docx":
             text = _docx_text(path)
         else:
-            raise ValueError(f"Unsupported file type: {path.name} (use .txt, .md, .docx or .pdf)")
+            raise ValueError(
+                f"Unsupported file type: {path.name} (use .txt, .md, .docx or .pdf)"
+            )
         if not text.strip():
             raise ValueError(f"No text found in {path.name}")
-        blocks.append({
-            "type": "text",
-            "text": f'<audit_material file="{path.name}">\n{text.strip()}\n</audit_material>',
-        })
+        blocks.append(
+            {
+                "type": "text",
+                "text": f'<audit_material file="{path.name}">\n{text.strip()}\n</audit_material>',
+            }
+        )
     return blocks

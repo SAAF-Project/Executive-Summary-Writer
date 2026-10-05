@@ -3,6 +3,7 @@ the Executive Board summary.
 
     python scripts/run.py samples/synthetic-audit-report.md
 """
+
 import argparse
 import logging
 import sys
@@ -21,7 +22,12 @@ from material import load_material
 logger = logging.getLogger(__name__)
 
 QUIT_WORDS = {"quit", "exit"}
-API_CHOICES = {"1": "openai", "openai": "openai", "2": "claude", "claude": "claude"}
+API_CHOICES = {
+    "1": "openai",
+    "openai": "openai",
+    "2": "claude",
+    "claude": "claude",
+}
 
 
 def _ask(message: str) -> str:
@@ -51,18 +57,43 @@ def _choose_api(preselected: Optional[str]) -> Optional[str]:
 
 def _build_llm(api: str) -> BaseLLM:
     if api == "openai":
-        from llm_openai import OpenAILLM  # imported here so the Claude option does not need the OpenAI packages
+        from llm_openai import (
+            OpenAILLM,
+        )  # imported here so the Claude option does not need the OpenAI packages
+
         return OpenAILLM()
     return ClaudeLLM()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Executive Summary Writer")
-    parser.add_argument("files", nargs="+", type=Path, help="Audit material: .txt, .md, .docx or .pdf")
-    parser.add_argument("--api", choices=["openai", "claude"], help="API to use; asked at the start if omitted")
-    parser.add_argument("--request", default="", help='Your request, e.g. "3 paragraphs / 600 words, factual tone"')
-    parser.add_argument("--output-dir", type=Path, default=Path("./output"), help="Folder for the saved summary")
-    parser.add_argument("--verbose", action="store_true", help="Also log token usage per model call")
+    parser.add_argument(
+        "files",
+        nargs="+",
+        type=Path,
+        help="Audit material: .txt, .md, .docx or .pdf",
+    )
+    parser.add_argument(
+        "--api",
+        choices=["openai", "claude"],
+        help="API to use; asked at the start if omitted",
+    )
+    parser.add_argument(
+        "--request",
+        default="",
+        help='Your request, e.g. "3 paragraphs / 600 words, factual tone"',
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("./output"),
+        help="Folder for the saved summary",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Also log token usage per model call",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -95,7 +126,9 @@ def main() -> int:
     print(f"\nExecutive Summary Writer ({llm.name}). Type 'quit' to stop.")
 
     try:
-        result = app.invoke({"material": material, "request": args.request}, config)
+        result = app.invoke(
+            {"material": material, "request": args.request}, config
+        )
         while "__interrupt__" in result:
             reply = _ask(result["__interrupt__"][0].value["message"])
             if reply.lower() in QUIT_WORDS:
@@ -106,16 +139,22 @@ def main() -> int:
         print("\n[!] Interrupted by user. No summary was written.")
         return 130
     except anthropic.AuthenticationError:
-        print("[!] Authentication failed. Set ANTHROPIC_API_KEY and run again.")
+        print(
+            "[!] Authentication failed. Set ANTHROPIC_API_KEY and run again."
+        )
         return 1
     except anthropic.RateLimitError:
-        print("[!] Rate limit reached after retries. Wait a moment and run again.")
+        print(
+            "[!] Rate limit reached after retries. Wait a moment and run again."
+        )
         return 1
     except anthropic.APIStatusError as exc:
         print(f"[!] API error {exc.status_code}: {exc.message}")
         return 1
     except anthropic.APIConnectionError:
-        print("[!] Could not reach the Anthropic API. Check the network connection.")
+        print(
+            "[!] Could not reach the Anthropic API. Check the network connection."
+        )
         return 1
     except RuntimeError as exc:
         print(f"[!] {exc}")
@@ -126,14 +165,21 @@ def main() -> int:
         print(f"[!] OpenAI API error: {exc}")
         return 1
 
-    print(f"\nConfirmed for the Executive Board summary:\n{result['confirmation']}\n")
+    print(
+        f"\nConfirmed for the Executive Board summary:\n{result['confirmation']}\n"
+    )
     print(result["summary"])
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    out_file = args.output_dir / f"executive-summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    out_file = (
+        args.output_dir
+        / f"executive-summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    )
     out_file.write_text(
         f"> Confirmed with the audit manager:\n>\n"
-        + "\n".join(f"> {line}" for line in result["confirmation"].splitlines())
+        + "\n".join(
+            f"> {line}" for line in result["confirmation"].splitlines()
+        )
         + f"\n\n{result['summary']}\n",
         encoding="utf-8",
     )

@@ -1,10 +1,24 @@
 # Executive-Summary-Writer
 
-A conversational agent that helps an audit manager write the Executive Board summary of an audit report. It does not summarise straight away. It first guides the audit manager through a short preparation phase (common root cause, relationships between findings, storyline, tone), challenges the material from the perspective of the Board, the regulator, the external auditor and the CRO, and only then writes a three-paragraph summary in business UK English.
+A conversational agent that helps an audit manager write the Executive Board
+summary of an audit report. It does not summarise straight away. It first guides
+the audit manager through a short preparation phase (common root cause,
+relationships between findings, storyline, tone), challenges the material from
+the perspective of the Board, the regulator, the external auditor and the CRO,
+and only then writes a three-paragraph summary in business UK English.
 
-This is the Claude API + LangGraph implementation of an instruction originally written for a chat assistant. The original instructions and the full skill texts are kept local and are not published; only the skill descriptions are. In the original chat-assistant version, the instruction asks the model to hold back the summary. Here the graph enforces it: the node that writes the summary cannot be reached until every preparation step has been confirmed or explicitly skipped.
+This is the Claude API + LangGraph implementation of an instruction originally
+written for a chat assistant. The original instructions and the full skill texts
+are kept local and are not published; only the skill descriptions are. In the
+original chat-assistant version, the instruction asks the model to hold back the
+summary. Here the graph enforces it: the node that writes the summary cannot be
+reached until every preparation step has been confirmed or explicitly skipped.
 
-This is the working-code home for the Hackathon 4 plan `junhan-wen-executive-summary-writer.md`, submitted in [SAAF-Project/SAAF-Project#132](https://github.com/SAAF-Project/SAAF-Project/pull/132). What the agent must be judged against is in [`AUDIT-CRITERIA.md`](AUDIT-CRITERIA.md).
+This is the working-code home for the Hackathon 4 plan
+`junhan-wen-executive-summary-writer.md`, submitted in
+[SAAF-Project/SAAF-Project#132](https://github.com/SAAF-Project/SAAF-Project/pull/132).
+What the agent must be judged against is in
+[`AUDIT-CRITERIA.md`](AUDIT-CRITERIA.md).
 
 ## Repository layout
 
@@ -47,11 +61,25 @@ flowchart TD
     S["Confirmation (max 4 bullets)"] --> W["Executive Board summary<br/>+ Potential Gaps"]
 ```
 
-1. **Ask first, propose second.** Each of the first three steps starts with a question. If the audit manager already knows the answer, it is used as given (a supplied storyline is refined and strengthened). Claude analyses the material and proposes a small number of options only when the audit manager does not know.
-2. **One step per turn.** Every question is a LangGraph interrupt: the run stops and waits for a reply. After proposals, the agent waits for a selection, a refinement or an alternative before moving on. Rejected proposals are proposed again.
-3. **The gate.** A request such as "Write an executive summary" or "Summarise in 600 words" does not skip the preparation phase. Pass it with `--request`; its format preferences (length, number of paragraphs) are applied when the summary is finally written.
-4. **Facts versus proposals.** Proposed relationships use cautious wording. Only what the audit manager confirmed is presented as fact in the summary; skipped items are worded as Internal Audit's view.
-5. **Output.** The confirmation bullets, the three-paragraph summary and a "Potential Gaps for Executive Board Consideration" section, printed and saved as Markdown.
+1. **Ask first, propose second.** Each of the first three steps starts with a
+   question. If the audit manager already knows the answer, it is used as given
+   (a supplied storyline is refined and strengthened). Claude analyses the
+   material and proposes a small number of options only when the audit manager
+   does not know.
+2. **One step per turn.** Every question is a LangGraph interrupt: the run stops
+   and waits for a reply. After proposals, the agent waits for a selection, a
+   refinement or an alternative before moving on. Rejected proposals are
+   proposed again.
+3. **The gate.** A request such as "Write an executive summary" or "Summarise in
+   600 words" does not skip the preparation phase. Pass it with `--request`; its
+   format preferences (length, number of paragraphs) are applied when the
+   summary is finally written.
+4. **Facts versus proposals.** Proposed relationships use cautious wording. Only
+   what the audit manager confirmed is presented as fact in the summary; skipped
+   items are worded as Internal Audit's view.
+5. **Output.** The confirmation bullets, the three-paragraph summary and a
+   "Potential Gaps for Executive Board Consideration" section, printed and saved
+   as Markdown.
 
 ## Requirements
 
@@ -86,7 +114,9 @@ Which API do you want to use?
   2. Claude
 ```
 
-Then answer each question in the terminal. Reply `skip` to skip a step, press Enter at the tone question for the default, and type `quit` to stop without a summary.
+Then answer each question in the terminal. Reply `skip` to skip a step, press
+Enter at the tone question for the default, and type `quit` to stop without a
+summary.
 
 | Flag | Effect |
 |---|---|
@@ -109,18 +139,30 @@ Then answer each question in the terminal. Reply `skip` to skip a step, press En
 | `REQUEST_TIMEOUT_SECONDS` | `600` | Request timeout |
 | `USE_REFUSAL_FALLBACKS` | `1` | If a safety classifier declines a request, the API re-runs it on Anthropic's recommended fallback model. Set to `0` to switch this off |
 
-The audit material is sent with a prompt-cache breakpoint, so the calls after the first read the system prompt and the material from the cache while the conversation is active.
+The audit material is sent with a prompt-cache breakpoint, so the calls after
+the first read the system prompt and the material from the cache while the
+conversation is active.
 
 ## Choosing the API
 
-- **Claude** (default setup): uses the Anthropic SDK and the environment variables in the table above.
-- **OpenAI**: uses the Chat Completions API. Install the `openai` package and create `scripts/openai_config.py` (git-ignored) that defines `client` (an `openai.OpenAI` or `openai.AzureOpenAI` instance) and `DEPLOYMENT_NAME` (the model or deployment to call). `TEMPERATURE`, `TOPPVALUE` and `RESPONSE_MAX_TOKENS` are used if the file defines them. With OpenAI, PDF input is not supported, and the settings in the table above do not apply.
+- **Claude** (default setup): uses the Anthropic SDK and the environment
+  variables in the table above.
+- **OpenAI**: uses the Chat Completions API. Install the `openai` package and
+  create `scripts/openai_config.py` (git-ignored) that defines `client` (an
+  `openai.OpenAI` or `openai.AzureOpenAI` instance) and `DEPLOYMENT_NAME` (the
+  model or deployment to call). `TEMPERATURE`, `TOPPVALUE` and
+  `RESPONSE_MAX_TOKENS` are used if the file defines them. With OpenAI, PDF
+  input is not supported, and the settings in the table above do not apply.
 
 Both options run the same graph, the same prompts and the same steps.
 
 ## Using your own wording
 
-`scripts/prompts.py` contains generic texts. To use your organisation's own wording without publishing it, create `scripts/prompts_local.py` (git-ignored) and redefine any of the names from `prompts.py` there, for example `SYSTEM_PROMPT` or `ROOT_CAUSE`. If you redefine a step, also redefine `STEPS`. The file is loaded automatically when present.
+`scripts/prompts.py` contains generic texts. To use your organisation's own
+wording without publishing it, create `scripts/prompts_local.py` (git-ignored)
+and redefine any of the names from `prompts.py` there, for example
+`SYSTEM_PROMPT` or `ROOT_CAUSE`. If you redefine a step, also redefine `STEPS`.
+The file is loaded automatically when present.
 
 ## Tests
 
@@ -129,15 +171,24 @@ pip install -r requirements-dev.txt
 pytest tests/
 ```
 
-The tests replace Claude with a scripted stand-in and check the conversation flow: the first response only asks the Step 1 question, no summary is written before all steps are done, proposals are followed by a stop, and skipped steps and the default tone are handled.
+The tests replace Claude with a scripted stand-in and check the conversation
+flow: the first response only asks the Step 1 question, no summary is written
+before all steps are done, proposals are followed by a stop, and skipped steps
+and the default tone are handled.
 
 ## Known gaps / TODO
 
-- Only the complete-instruction variant is implemented. The instruction-with-skills variant (six skills, with a separate theme-synthesis step) is not.
+- Only the complete-instruction variant is implemented. The
+  instruction-with-skills variant (six skills, with a separate theme-synthesis
+  step) is not.
 - Terminal conversation only; there is no web or chat front end.
-- The conversation is kept in memory. A run that is stopped cannot be resumed later.
+- The conversation is kept in memory. A run that is stopped cannot be resumed
+  later.
 - Not yet evaluated on a set of reports with reference summaries.
 
 ## Ownership / data handling
 
-Built by Junhan Wen and processed with Claude. Draft audit reports are confidential: do not commit real audit evidence, personal data, or credentials. `samples/` contains synthetic material only; `output/` and `data/` are git-ignored.
+Built by Junhan Wen and processed with Claude. Draft audit reports are
+confidential: do not commit real audit evidence, personal data, or credentials.
+`samples/` contains synthetic material only; `output/` and `data/` are
+git-ignored.

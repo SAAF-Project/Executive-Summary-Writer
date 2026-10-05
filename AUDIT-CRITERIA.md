@@ -14,17 +14,31 @@
 | **Last reviewed** | 2026-10-05 |
 | **Status** | Draft |
 
-**Sources used to draft this document:** the README, the code in `scripts/`, the tests in `tests/test_graph.py`, and the plan `plans/hackathon-4/junhan-wen-executive-summary-writer.md` in the main SAAF-Project repo. Not yet reviewed by a second person.
+**Sources used to draft this document:** the README, the code in `scripts/`, the
+tests in `tests/test_graph.py`, and the plan
+`plans/hackathon-4/junhan-wen-executive-summary-writer.md` in the main
+SAAF-Project repo. Not yet reviewed by a second person.
 
-**This agent makes model calls at runtime** (the chosen model, Claude or an OpenAI model, interprets the audit manager's replies, proposes options, runs the challenge review and writes the summary), so AI-specific frameworks apply.
+**This agent makes model calls at runtime** (the chosen model, Claude or an
+OpenAI model, interprets the audit manager's replies, proposes options, runs the
+challenge review and writes the summary), so AI-specific frameworks apply.
 
 ## 1. What the agent does
 
-The agent helps an audit manager turn audit material (a draft report, observations, management responses) into a three-paragraph Executive Board summary. It does not summarise straight away. It first takes the audit manager through a preparation phase (common root cause, relationships between findings, storyline, tone), then reviews the material for gaps from the perspective of the Board, the regulator, the external auditor and the CRO, and only then writes the summary with a list of remaining gaps. The output is a Markdown draft for the audit manager to review and edit.
+The agent helps an audit manager turn audit material (a draft report,
+observations, management responses) into a three-paragraph Executive Board
+summary. It does not summarise straight away. It first takes the audit manager
+through a preparation phase (common root cause, relationships between findings,
+storyline, tone), then reviews the material for gaps from the perspective of the
+Board, the regulator, the external auditor and the CRO, and only then writes the
+summary with a list of remaining gaps. The output is a Markdown draft for the
+audit manager to review and edit.
 
 ## 2. Control objectives & framework mapping
 
-These are control objectives **for the agent itself**: what must be true of its behaviour for an audit manager to rely on it. They are not the objectives of the audit whose report is being summarised.
+These are control objectives **for the agent itself**: what must be true of its
+behaviour for an audit manager to rely on it. They are not the objectives of the
+audit whose report is being summarised.
 
 | Control objective | Framework + clause/area | Why relevant |
 |---|---|---|
@@ -38,40 +52,73 @@ These are control objectives **for the agent itself**: what must be true of its 
 
 ### CO-1 — The preparation phase cannot be bypassed
 
-- Given audit material and any request, the agent's first response is the introduction and the Step 1 question only, and no model call has been made before it.
-- Given replies such as "Please provide a summary", "Summarise in 600 words" or "Write the summary now" in place of answers, the agent does not write a summary; it continues with the next preparation question.
-- Given a run in which any of root cause, relationships or storyline is neither confirmed nor skipped, or no tone is set, the summary step raises an error and no summary is written.
-- Given a request passed with `--request`, its format preferences are applied only when the final summary is written.
+- Given audit material and any request, the agent's first response is the
+  introduction and the Step 1 question only, and no model call has been made
+  before it.
+- Given replies such as "Please provide a summary", "Summarise in 600 words" or
+  "Write the summary now" in place of answers, the agent does not write a
+  summary; it continues with the next preparation question.
+- Given a run in which any of root cause, relationships or storyline is neither
+  confirmed nor skipped, or no tone is set, the summary step raises an error and
+  no summary is written.
+- Given a request passed with `--request`, its format preferences are applied
+  only when the final summary is written.
 
 ### CO-2 — The audit manager owns the narrative
 
-- Given an audit manager who states a root cause, relationships or a storyline, the agent records that answer and does not call the model for proposals on that step.
-- Given an audit manager who does not know, the agent proposes options (at most three root causes; key findings F1, F2, … with possible relationships; two to three storylines) and then stops until the audit manager replies.
-- Given an audit manager who rejects the proposals, the agent proposes again and stops again; it does not pick an option itself.
-- Given an answer to a step, the next question starts by repeating what was recorded for that step.
-- Given an empty reply to the tone question, the tone is Balanced, without a model call.
-- Given a storyline selected from the agent's proposals, the agent uses it as selected. Given a storyline supplied by the audit manager, the agent tightens it into one or two sentences.
-- **Limitation, stated honestly:** the audit manager's reply is classified by the model as an answer, "don't know" or "skip". A misclassification is visible in the acknowledgement at the next question, but the audit manager cannot go back a step to correct it within the same run.
+- Given an audit manager who states a root cause, relationships or a storyline,
+  the agent records that answer and does not call the model for proposals on
+  that step.
+- Given an audit manager who does not know, the agent proposes options (at most
+  three root causes; key findings F1, F2, … with possible relationships; two to
+  three storylines) and then stops until the audit manager replies.
+- Given an audit manager who rejects the proposals, the agent proposes again and
+  stops again; it does not pick an option itself.
+- Given an answer to a step, the next question starts by repeating what was
+  recorded for that step.
+- Given an empty reply to the tone question, the tone is Balanced, without a
+  model call.
+- Given a storyline selected from the agent's proposals, the agent uses it as
+  selected. Given a storyline supplied by the audit manager, the agent tightens
+  it into one or two sentences.
+- **Limitation, stated honestly:** the audit manager's reply is classified by
+  the model as an answer, "don't know" or "skip". A misclassification is visible
+  in the acknowledgement at the next question, but the audit manager cannot go
+  back a step to correct it within the same run.
 
 ### CO-3 — Nothing invented, proposals are not facts
 
-- Given proposed relationships between findings, the wording is cautious ("may contribute to", "appears linked to") and not stated as established.
-- Given a summary, every figure, owner, date and management action in it can be found in the audit material or in the audit manager's replies.
-- Given a relationship that was proposed but not confirmed, the summary does not state it as a fact.
-- Given a step the audit manager skipped, the summary presents the corresponding point as Internal Audit's view, not as an established fact.
-- Given critical gaps identified in the challenge review, the audit manager is asked about them before the summary is written, and any question left unanswered appears under "Potential Gaps for Executive Board Consideration".
-- **Limitation, stated honestly:** the second, third and fourth criteria depend on model behaviour and are checked by a person comparing the summary with the material. Nothing in the code verifies them.
+- Given proposed relationships between findings, the wording is cautious ("may
+  contribute to", "appears linked to") and not stated as established.
+- Given a summary, every figure, owner, date and management action in it can be
+  found in the audit material or in the audit manager's replies.
+- Given a relationship that was proposed but not confirmed, the summary does not
+  state it as a fact.
+- Given a step the audit manager skipped, the summary presents the corresponding
+  point as Internal Audit's view, not as an established fact.
+- Given critical gaps identified in the challenge review, the audit manager is
+  asked about them before the summary is written, and any question left
+  unanswered appears under "Potential Gaps for Executive Board Consideration".
+- **Limitation, stated honestly:** the second, third and fourth criteria depend
+  on model behaviour and are checked by a person comparing the summary with the
+  material. Nothing in the code verifies them.
 
 ### CO-4 — Fit for the Board
 
-- Given a completed run, the output contains a confirmation of at most four bullets (root cause, key finding relationships, storyline, tone), a summary of three paragraphs, and a section "Potential Gaps for Executive Board Consideration".
+- Given a completed run, the output contains a confirmation of at most four
+  bullets (root cause, key finding relationships, storyline, tone), a summary of
+  three paragraphs, and a section "Potential Gaps for Executive Board
+  Consideration".
 - Given material with low-risk findings, the summary does not discuss them.
-- Given any material, the summary is in UK English and does not use control or test identifiers or system names that a Board member would not know.
+- Given any material, the summary is in UK English and does not use control or
+  test identifiers or system names that a Board member would not know.
 
 ### CO-5 — Credentials and material protection
 
-- Given the repository, no file contains an API key or other credential; the key is read from `ANTHROPIC_API_KEY`.
-- Given the repository, `output/` and `data/` are git-ignored, and the only audit material tracked is the synthetic sample in `samples/`.
+- Given the repository, no file contains an API key or other credential; the key
+  is read from `ANTHROPIC_API_KEY`.
+- Given the repository, `output/` and `data/` are git-ignored, and the only
+  audit material tracked is the synthetic sample in `samples/`.
 
 ## 4. Good output / never do
 
@@ -84,22 +131,47 @@ These are control objectives **for the agent itself**: what must be true of its 
 | ✓ Plain business UK English | ✕ Present the summary as final without the audit manager's review |
 | | ✕ Hard-code credentials, or commit real audit material or generated summaries |
 
-The output is narrative text, not findings, so `outputs/schemas/finding-schema.json` does not apply to it.
+The output is narrative text, not findings, so
+`outputs/schemas/finding-schema.json` does not apply to it.
 
 ## 5. Coverage gaps
 
-- **The OpenAI option is new and untested against a live endpoint.** It is covered by tests with a fake client only. It does not accept PDF input, and it does not use prompt caching.
-- **Not yet run against the live Claude API.** The conversation flow is tested with a scripted stand-in for the model. Every criterion that depends on what the model writes is unverified.
-- **The prompts and skills still need improvement.** When the agent was tested by an audit manager who answered "I don't know" at every step, the root causes, relationships and storylines it proposed stayed close to the examples given in its own instructions, instead of being derived from the audit material. Until this is fixed, proposals should be read with that bias in mind.
-- **Board audience only.** The agent writes for the Executive Board. It is planned to make it more generic, so that the same preparation steps can serve other readers of an audit report.
-- **No public evaluation or sample outputs yet.** Realistic tests of summary quality have to refer to real company audit reports, which cannot be published. The repository therefore contains only conversation-flow tests and one synthetic report; there is no set of reports with reference summaries, and no measure of whether a summary is faithful to the material.
-- **No fact-check of the summary against the material.** Invented or altered facts would have to be caught by the audit manager.
-- **No way to go back a step** or to correct a misinterpreted reply without restarting.
-- **The conversation is held in memory.** A stopped run cannot be resumed, and there is no record of the conversation other than the final file.
-- **No transcript or prompt log.** The prompts sent to the model and its raw replies are not saved, so a summary cannot be traced back to the calls that produced it.
-- **Confidentiality depends on where it is run.** The audit material is sent to the Anthropic API; whether that is permitted for a given report is the user's decision and is not checked.
-- **Fallback model.** By default, a request declined by a safety classifier is re-run on a fallback model, and the output does not say which model answered.
-- **Only the complete-instruction design is implemented.** The instruction-with-skills design, with a separate theme-synthesis step, is not.
+- **The OpenAI option is new and untested against a live endpoint.** It is
+  covered by tests with a fake client only. It does not accept PDF input, and it
+  does not use prompt caching.
+- **Not yet run against the live Claude API.** The conversation flow is tested
+  with a scripted stand-in for the model. Every criterion that depends on what
+  the model writes is unverified.
+- **The prompts and skills still need improvement.** When the agent was tested
+  by an audit manager who answered "I don't know" at every step, the root
+  causes, relationships and storylines it proposed stayed close to the examples
+  given in its own instructions, instead of being derived from the audit
+  material. Until this is fixed, proposals should be read with that bias in
+  mind.
+- **Board audience only.** The agent writes for the Executive Board. It is
+  planned to make it more generic, so that the same preparation steps can serve
+  other readers of an audit report.
+- **No public evaluation or sample outputs yet.** Realistic tests of summary
+  quality have to refer to real company audit reports, which cannot be
+  published. The repository therefore contains only conversation-flow tests and
+  one synthetic report; there is no set of reports with reference summaries, and
+  no measure of whether a summary is faithful to the material.
+- **No fact-check of the summary against the material.** Invented or altered
+  facts would have to be caught by the audit manager.
+- **No way to go back a step** or to correct a misinterpreted reply without
+  restarting.
+- **The conversation is held in memory.** A stopped run cannot be resumed, and
+  there is no record of the conversation other than the final file.
+- **No transcript or prompt log.** The prompts sent to the model and its raw
+  replies are not saved, so a summary cannot be traced back to the calls that
+  produced it.
+- **Confidentiality depends on where it is run.** The audit material is sent to
+  the Anthropic API; whether that is permitted for a given report is the user's
+  decision and is not checked.
+- **Fallback model.** By default, a request declined by a safety classifier is
+  re-run on a fallback model, and the output does not say which model answered.
+- **Only the complete-instruction design is implemented.** The
+  instruction-with-skills design, with a separate theme-synthesis step, is not.
 - **`.docx` and `.pdf` input are untested.**
 
 ## 6. Status / validation
@@ -120,8 +192,16 @@ The output is narrative text, not findings, so `outputs/schemas/finding-schema.j
 | CO-4 — three paragraphs, gaps section, no low-risk findings, UK English | ☐ | Needs a live run |
 | CO-5 — no credentials or real material in the repository | ☑ | Tracked files reviewed on 2026-10-05 |
 
-All ☑ rows above are verified with the scripted stand-in for the model, not with Claude. Next step: a live run on `samples/synthetic-audit-report.md` (which contains a low-risk finding and an unquantified impact on purpose) to check the open CO-3 and CO-4 rows.
+All ☑ rows above are verified with the scripted stand-in for the model, not with
+Claude. Next step: a live run on `samples/synthetic-audit-report.md` (which
+contains a low-risk finding and an unquantified impact on purpose) to check the
+open CO-3 and CO-4 rows.
 
 ## 7. Observability
 
-Logged today: progress messages for each model-backed step, and with `--verbose` the token usage per call, including prompt-cache reads. The final summary is saved with the confirmed root cause, relationships, storyline and tone at the top. Missing: no transcript of the conversation, no log of prompts and raw replies, no record of which model answered when a fallback occurred, and no cost accounting.
+Logged today: progress messages for each model-backed step, and with `--verbose`
+the token usage per call, including prompt-cache reads. The final summary is
+saved with the confirmed root cause, relationships, storyline and tone at the
+top. Missing: no transcript of the conversation, no log of prompts and raw
+replies, no record of which model answered when a fallback occurred, and no cost
+accounting.
