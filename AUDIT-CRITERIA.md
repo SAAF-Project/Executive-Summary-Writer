@@ -92,7 +92,7 @@ The output is narrative text, not findings, so `outputs/schemas/finding-schema.j
 - **Not yet run against the live Claude API.** The conversation flow is tested with a scripted stand-in for the model. Every criterion that depends on what the model writes is unverified.
 - **The prompts and skills still need improvement.** When the agent was tested by an audit manager who answered "I don't know" at every step, the root causes, relationships and storylines it proposed stayed close to the examples given in its own instructions, instead of being derived from the audit material. Until this is fixed, proposals should be read with that bias in mind.
 - **Board audience only.** The agent writes for the Executive Board. It is planned to make it more generic, so that the same preparation steps can serve other readers of an audit report.
-- **No evaluation of summary quality.** There is no set of reports with reference summaries, and no measure of whether the summary is faithful to the material.
+- **No public evaluation or sample outputs yet.** Realistic tests of summary quality have to refer to real company audit reports, which cannot be published. The repository therefore contains only conversation-flow tests and one synthetic report; there is no set of reports with reference summaries, and no measure of whether a summary is faithful to the material.
 - **No fact-check of the summary against the material.** Invented or altered facts would have to be caught by the audit manager.
 - **No way to go back a step** or to correct a misinterpreted reply without restarting.
 - **The conversation is held in memory.** A stopped run cannot be resumed, and there is no record of the conversation other than the final file.

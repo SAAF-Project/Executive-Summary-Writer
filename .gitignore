@@ -15,7 +15,7 @@ output/
 data/
 
 # Original company instructions and skills — kept local, not published
-/prompts/*
+/prompts/
 /skills/*
 !/skills/Skill description.md
 scripts/prompts_local.py
