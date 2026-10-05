@@ -1,4 +1,4 @@
-"""Claude API calls for the Executive Summary Writer.
+"""Model calls for the Executive Summary Writer: the shared step logic and the Claude API provider.
 
 All settings are read from environment variables. The API key is taken from ANTHROPIC_API_KEY by the
 SDK automatically; no credentials are hard-coded.
@@ -42,10 +42,79 @@ class ChallengeReview(BaseModel):
     questions: List[str]
 
 
-# -------------------- Client --------------------
+# -------------------- Steps (shared by every provider) --------------------
 
-class ClaudeLLM:
-    """The Claude calls behind each step of the graph."""
+class BaseLLM:
+    """The model calls behind each step of the graph. A provider implements _text and _parsed."""
+
+    name = "model"
+
+    def _text(self, task: str, material: Optional[List[Dict[str, Any]]] = None, effort: str = EFFORT) -> str:
+        raise NotImplementedError
+
+    def _parsed(self, task: str, schema: Type[T], material: Optional[List[Dict[str, Any]]] = None,
+                effort: str = EFFORT) -> T:
+        raise NotImplementedError
+
+    def interpret(self, question: str, reply: str, proposal: Optional[str]) -> Interpretation:
+        """Decide whether the audit manager answered, does not know, or wants to skip."""
+        proposal_block = f"Options that were proposed:\n{proposal}\n\n" if proposal else ""
+        task = prompts.INTERPRET_REPLY.format(question=question, proposal_block=proposal_block, reply=reply)
+        return self._parsed(task, Interpretation, effort="low")
+
+    def interpret_tone(self, reply: str) -> str:
+        return self._parsed(prompts.INTERPRET_TONE.format(reply=reply), ToneChoice, effort="low").tone
+
+    def propose(self, step: StepSpec, material: List[Dict[str, Any]], confirmed: str,
+                guidance: str, previous: Optional[str]) -> str:
+        """Propose options for a step the audit manager could not answer."""
+        task = step.propose
+        if confirmed:
+            task += f"\n\nConfirmed so far:\n{confirmed}"
+        if previous:
+            task += f"\n\nYou proposed the following before and the audit manager wants different options:\n{previous}"
+        if guidance:
+            task += f"\n\nDirection from the audit manager:\n{guidance}"
+        return self._text(task, material)
+
+    def refine_storyline(self, storyline: str, material: List[Dict[str, Any]], confirmed: str) -> str:
+        task = prompts.REFINE_STORYLINE.format(storyline=storyline)
+        if confirmed:
+            task += f"\n\nConfirmed so far:\n{confirmed}"
+        return self._text(task, material)
+
+    def challenge(self, material: List[Dict[str, Any]], confirmed: str) -> List[str]:
+        task = f"{prompts.CHALLENGE_REVIEW}\n\nConfirmed so far:\n{confirmed}"
+        return self._parsed(task, ChallengeReview, material).questions
+
+    def write_summary(self, material: List[Dict[str, Any]], confirmed: str, tone: str, request: str,
+                      challenge_questions: List[str], challenge_answers: str) -> str:
+        request_block = (
+            "The audit manager's original request (follow its format preferences, such as length, where "
+            f"they do not conflict with the structure below):\n{request}\n\n" if request else ""
+        )
+        tone_block = f"{prompts.BALANCED_DEFINITION}\n\n" if tone == prompts.DEFAULT_TONE else ""
+        challenge_block = ""
+        if challenge_questions:
+            questions = "\n".join(f"- {q}" for q in challenge_questions)
+            challenge_block = (
+                f"Additional questions asked in the challenge review:\n{questions}\n\n"
+                f"Audit manager's answer:\n{challenge_answers or '(no answer)'}\n\n"
+                "Treat any question that was not answered as a remaining gap.\n\n"
+            )
+        task = prompts.WRITE_SUMMARY.format(
+            request_block=request_block, confirmed=confirmed, tone_block=tone_block,
+            challenge_block=challenge_block,
+        )
+        return self._text(task, material)
+
+
+# -------------------- Claude --------------------
+
+class ClaudeLLM(BaseLLM):
+    """Claude API provider."""
+
+    name = MODEL_NAME
 
     def __init__(self, client: Optional[anthropic.Anthropic] = None) -> None:
         # The SDK retries connection errors, 408, 409, 429 and 5xx with exponential backoff.
@@ -103,57 +172,3 @@ class ClaudeLLM:
         response = self.client.messages.parse(**self._request(task, material, effort), output_format=schema)
         self._check(response)
         return response.parsed_output
-
-    # ---- steps ----
-
-    def interpret(self, question: str, reply: str, proposal: Optional[str]) -> Interpretation:
-        """Decide whether the audit manager answered, does not know, or wants to skip."""
-        proposal_block = f"Options that were proposed:\n{proposal}\n\n" if proposal else ""
-        task = prompts.INTERPRET_REPLY.format(question=question, proposal_block=proposal_block, reply=reply)
-        return self._parsed(task, Interpretation, effort="low")
-
-    def interpret_tone(self, reply: str) -> str:
-        return self._parsed(prompts.INTERPRET_TONE.format(reply=reply), ToneChoice, effort="low").tone
-
-    def propose(self, step: StepSpec, material: List[Dict[str, Any]], confirmed: str,
-                guidance: str, previous: Optional[str]) -> str:
-        """Propose options for a step the audit manager could not answer."""
-        task = step.propose
-        if confirmed:
-            task += f"\n\nConfirmed so far:\n{confirmed}"
-        if previous:
-            task += f"\n\nYou proposed the following before and the audit manager wants different options:\n{previous}"
-        if guidance:
-            task += f"\n\nDirection from the audit manager:\n{guidance}"
-        return self._text(task, material)
-
-    def refine_storyline(self, storyline: str, material: List[Dict[str, Any]], confirmed: str) -> str:
-        task = prompts.REFINE_STORYLINE.format(storyline=storyline)
-        if confirmed:
-            task += f"\n\nConfirmed so far:\n{confirmed}"
-        return self._text(task, material)
-
-    def challenge(self, material: List[Dict[str, Any]], confirmed: str) -> List[str]:
-        task = f"{prompts.CHALLENGE_REVIEW}\n\nConfirmed so far:\n{confirmed}"
-        return self._parsed(task, ChallengeReview, material).questions
-
-    def write_summary(self, material: List[Dict[str, Any]], confirmed: str, tone: str, request: str,
-                      challenge_questions: List[str], challenge_answers: str) -> str:
-        request_block = (
-            "The audit manager's original request (follow its format preferences, such as length, where "
-            f"they do not conflict with the structure below):\n{request}\n\n" if request else ""
-        )
-        tone_block = f"{prompts.BALANCED_DEFINITION}\n\n" if tone == prompts.DEFAULT_TONE else ""
-        challenge_block = ""
-        if challenge_questions:
-            questions = "\n".join(f"- {q}" for q in challenge_questions)
-            challenge_block = (
-                f"Additional questions asked in the challenge review:\n{questions}\n\n"
-                f"Audit manager's answer:\n{challenge_answers or '(no answer)'}\n\n"
-                "Treat any question that was not answered as a remaining gap.\n\n"
-            )
-        task = prompts.WRITE_SUMMARY.format(
-            request_block=request_block, confirmed=confirmed, tone_block=tone_block,
-            challenge_block=challenge_block,
-        )
-        return self._text(task, material)

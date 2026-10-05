@@ -14,13 +14,15 @@ skills/
 scripts/
   run.py                   Entry point — terminal conversation with the audit manager
   graph.py                 LangGraph workflow: the steps, the interrupts and the gate before the summary
-  llm.py                   Claude API calls and run configuration (env vars)
+  llm.py                   Shared step logic, Claude API calls and run configuration (env vars)
+  llm_openai.py            OpenAI / Azure OpenAI calls (Chat Completions), used when you choose OpenAI
   prompts.py               System prompt and the task text for each step (generic wording)
   material.py              Loads the audit material (.txt, .md, .docx, .pdf)
 samples/
   synthetic-audit-report.md   Invented audit report for trying the agent
 tests/
-  test_graph.py            Conversation-flow tests with a scripted stand-in for Claude (no API calls)
+  test_graph.py            Conversation-flow tests with a scripted stand-in for the model (no API calls)
+  test_llm_openai.py       OpenAI provider tests with a fake client (no API calls)
 AUDIT-CRITERIA.md          Control objectives, acceptance criteria and known gaps (SAAF A2 standard)
 ```
 
@@ -76,10 +78,19 @@ python scripts/run.py samples/synthetic-audit-report.md
 python scripts/run.py report.docx management-responses.pdf --request "3 paragraphs / 600 words, factual tone"
 ```
 
-Answer each question in the terminal. Reply `skip` to skip a step, press Enter at the tone question for the default, and type `quit` to stop without a summary.
+The agent first asks which API to use:
+
+```
+Which API do you want to use?
+  1. OpenAI
+  2. Claude
+```
+
+Then answer each question in the terminal. Reply `skip` to skip a step, press Enter at the tone question for the default, and type `quit` to stop without a summary.
 
 | Flag | Effect |
 |---|---|
+| `--api openai\|claude` | Choose the API on the command line and skip the question |
 | `--request TEXT` | Your original request; its format preferences are applied to the final summary |
 | `--output-dir DIR` | Folder where the summary is saved (default `./output`) |
 | `--verbose` | Also log token usage per model call, including prompt-cache reads |
@@ -99,6 +110,13 @@ Answer each question in the terminal. Reply `skip` to skip a step, press Enter a
 | `USE_REFUSAL_FALLBACKS` | `1` | If a safety classifier declines a request, the API re-runs it on Anthropic's recommended fallback model. Set to `0` to switch this off |
 
 The audit material is sent with a prompt-cache breakpoint, so the calls after the first read the system prompt and the material from the cache while the conversation is active.
+
+## Choosing the API
+
+- **Claude** (default setup): uses the Anthropic SDK and the environment variables in the table above.
+- **OpenAI**: uses the Chat Completions API. Install the `openai` package and create `scripts/openai_config.py` (git-ignored) that defines `client` (an `openai.OpenAI` or `openai.AzureOpenAI` instance) and `DEPLOYMENT_NAME` (the model or deployment to call). `TEMPERATURE`, `TOPPVALUE` and `RESPONSE_MAX_TOKENS` are used if the file defines them. With OpenAI, PDF input is not supported, and the settings in the table above do not apply.
+
+Both options run the same graph, the same prompts and the same steps.
 
 ## Using your own wording
 

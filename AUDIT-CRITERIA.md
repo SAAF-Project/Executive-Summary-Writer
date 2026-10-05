@@ -16,7 +16,7 @@
 
 **Sources used to draft this document:** the README, the code in `scripts/`, the tests in `tests/test_graph.py`, and the plan `plans/hackathon-4/junhan-wen-executive-summary-writer.md` in the main SAAF-Project repo. Not yet reviewed by a second person.
 
-**This agent makes model calls at runtime** (Claude interprets the audit manager's replies, proposes options, runs the challenge review and writes the summary), so AI-specific frameworks apply.
+**This agent makes model calls at runtime** (the chosen model, Claude or an OpenAI model, interprets the audit manager's replies, proposes options, runs the challenge review and writes the summary), so AI-specific frameworks apply.
 
 ## 1. What the agent does
 
@@ -88,6 +88,7 @@ The output is narrative text, not findings, so `outputs/schemas/finding-schema.j
 
 ## 5. Coverage gaps
 
+- **The OpenAI option is new and untested against a live endpoint.** It is covered by tests with a fake client only. It does not accept PDF input, and it does not use prompt caching.
 - **Not yet run against the live Claude API.** The conversation flow is tested with a scripted stand-in for the model. Every criterion that depends on what the model writes is unverified.
 - **The prompts and skills still need improvement.** When the agent was tested by an audit manager who answered "I don't know" at every step, the root causes, relationships and storylines it proposed stayed close to the examples given in its own instructions, instead of being derived from the audit material. Until this is fixed, proposals should be read with that bias in mind.
 - **Board audience only.** The agent writes for the Executive Board. It is planned to make it more generic, so that the same preparation steps can serve other readers of an audit report.
