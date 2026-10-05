@@ -4,6 +4,8 @@ A conversational agent that helps an audit manager write the Executive Board sum
 
 This is the Claude API + LangGraph implementation of an instruction originally written for a chat assistant. The original instructions and the full skill texts are kept local and are not published; only the skill descriptions are. In the original chat-assistant version, the instruction asks the model to hold back the summary. Here the graph enforces it: the node that writes the summary cannot be reached until every preparation step has been confirmed or explicitly skipped.
 
+This is the working-code home for the Hackathon 4 plan `junhan-wen-executive-summary-writer.md`, submitted in [SAAF-Project/SAAF-Project#132](https://github.com/SAAF-Project/SAAF-Project/pull/132). What the agent must be judged against is in [`AUDIT-CRITERIA.md`](AUDIT-CRITERIA.md).
+
 ## Repository layout
 
 ```
@@ -19,6 +21,7 @@ samples/
   synthetic-audit-report.md   Invented audit report for trying the agent
 tests/
   test_graph.py            Conversation-flow tests with a scripted stand-in for Claude (no API calls)
+AUDIT-CRITERIA.md          Control objectives, acceptance criteria and known gaps (SAAF A2 standard)
 ```
 
 ## Workflow
