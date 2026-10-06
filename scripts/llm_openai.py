@@ -1,7 +1,7 @@
 """OpenAI provider for the Executive Summary Writer (Chat Completions API).
 
-The client and its settings come from scripts/openai_config.py, which you provide yourself (it is
-git-ignored). It must define `client` (an `openai.OpenAI` or `openai.AzureOpenAI` instance) and
+The client and its settings come from scripts/openai_config.py, which holds your own provider
+settings. It must define `client` (an `openai.OpenAI` or `openai.AzureOpenAI` instance) and
 `DEPLOYMENT_NAME` (the model or deployment to call). `TEMPERATURE`, `TOPPVALUE` and
 `RESPONSE_MAX_TOKENS` are used when present.
 """

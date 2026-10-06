@@ -1,13 +1,20 @@
 """LangGraph workflow for the Executive Summary Writer.
 
 The graph enforces the preparation phase: the node that writes the
-summary can only be reached after root cause, relationships, storyline and tone have each been
-confirmed or explicitly skipped, and after the challenge review. Every question to the audit manager
+summary can only be reached after root cause, relationships, storyline, positive aspects, overall
+grade and tone have each been confirmed or explicitly skipped, and after the challenge review. Every question to the audit manager
 is a LangGraph interrupt, so the run stops there until a reply is supplied.
 
-    root cause -> relationships -> storyline -> tone -> challenge review -> confirmation -> summary
+    root cause -> relationships -> storyline -> positive aspects -> overall grade -> tone
+        -> challenge review -> confirmation -> summary -> main findings table
 
-Each of the first three steps is the same small loop:
+For the overall grade the order is the other way round: the model suggests a grade (A-D) from the
+findings first, and the audit manager accepts it or chooses another. That reply is read without the
+model, as it is one of four fixed values.
+
+The last node needs no reply: it sums up each finding of the audit material with its recommendation.
+
+Each of the first four steps is the same small loop:
 
     ask -> interpret --confirmed / skipped--> next step
             |   ^
@@ -37,6 +44,10 @@ class SummaryState(TypedDict, total=False):
     root_cause: Optional[str]
     relationships: Optional[str]
     storyline: Optional[str]
+    positives: Optional[str]
+    grade_suggestion: str  # the grade the model suggested
+    grade_reason: str
+    grade: str  # the grade the audit manager chose: A, B, C or D
     tone: str
     done: List[str]  # steps that were confirmed or explicitly skipped
     proposals: Dict[str, str]  # step key -> options currently on the table
@@ -50,6 +61,8 @@ class SummaryState(TypedDict, total=False):
     # output
     confirmation: str
     summary: str
+    pos_points: List[str]  # for the "Positive aspects" box of the report
+    neg_points: Dict[str, str]  # main finding -> recommendation
 
 
 def confirmed_text(state: SummaryState) -> str:
@@ -60,6 +73,9 @@ def confirmed_text(state: SummaryState) -> str:
             lines.append(
                 f"- {step.label}: {state.get(step.key) or 'Skipped by the audit manager'}"
             )
+    if state.get("grade"):
+        grade = state["grade"]
+        lines.append(f"- Overall grade: {grade} ({prompts.GRADES[grade]})")
     if state.get("tone"):
         lines.append(f"- Tone: {state['tone']}")
     return "\n".join(lines)
@@ -74,7 +90,7 @@ def build_graph(llm: Any, checkpointer: Any = None):
     """Compile the workflow. `llm` provides the Claude calls (see llm.ClaudeLLM)."""
     graph = StateGraph(SummaryState)
 
-    # -------------------- Steps 1-3: ask first, propose second --------------------
+    # -------------------- Steps 1-4: ask first, propose second --------------------
 
     def add_step(step: StepSpec, next_node: str) -> None:
         ask_node, interpret_node, propose_node = (
@@ -156,10 +172,43 @@ def build_graph(llm: Any, checkpointer: Any = None):
 
     add_step(prompts.ROOT_CAUSE, "relationships_ask")
     add_step(prompts.RELATIONSHIPS, "storyline_ask")
-    add_step(prompts.STORYLINE, "tone_ask")
+    add_step(prompts.STORYLINE, "positives_ask")
+    add_step(prompts.POSITIVES, "grade_suggest")
     graph.add_edge(START, "root_cause_ask")
 
-    # -------------------- Step 4: tone --------------------
+    # -------------------- Step 5: overall grade (propose first, then ask) --------------------
+
+    def grade_suggest(state: SummaryState) -> dict:
+        logger.info("Reading the findings to suggest an overall grade ...")
+        suggestion = llm.suggest_grade(state["material"])
+        return {
+            "grade_suggestion": suggestion.grade,
+            "grade_reason": suggestion.reason.strip(),
+        }
+
+    def grade_ask(state: SummaryState) -> dict:
+        grade = state["grade_suggestion"]
+        message = prompts.GRADE_QUESTION.format(
+            grade=grade,
+            definition=prompts.GRADES[grade],
+            reason=state["grade_reason"],
+        )
+        reply = interrupt({"step": "grade", "message": _with_ack(state, message)})
+        return {"reply": str(reply).strip(), "ack": ""}
+
+    def grade_interpret(state: SummaryState) -> dict:
+        choice = state["reply"].upper().removeprefix("GRADE").strip(" .")
+        if choice in prompts.GRADE_ACCEPT:
+            choice = state["grade_suggestion"]
+        if choice not in prompts.GRADES:
+            return {"decision": "unknown", "ack": prompts.GRADE_RETRY}
+        return {
+            "grade": choice,
+            "decision": "confirmed",
+            "ack": f"Overall grade noted: {choice}",
+        }
+
+    # -------------------- Step 6: tone --------------------
 
     def tone_ask(state: SummaryState) -> dict:
         reply = interrupt(
@@ -175,7 +224,7 @@ def build_graph(llm: Any, checkpointer: Any = None):
         tone = llm.interpret_tone(reply) if reply else prompts.DEFAULT_TONE
         return {"tone": tone, "ack": f"Tone noted: {tone}"}
 
-    # -------------------- Step 5: challenge review --------------------
+    # -------------------- Challenge review --------------------
 
     def challenge_review(state: SummaryState) -> dict:
         logger.info(
@@ -194,7 +243,7 @@ def build_graph(llm: Any, checkpointer: Any = None):
             for i, q in enumerate(state["challenge_questions"], start=1)
         )
         message = (
-            "Step 5: Challenge review. Before I write the summary, the following information would be "
+            "Challenge review. Before I write the summary, the following information would be "
             f"important for a board-level summary:\n\n{questions}\n\n"
             "Please answer what you can, or reply 'proceed' to continue with the information available."
         )
@@ -212,12 +261,13 @@ def build_graph(llm: Any, checkpointer: Any = None):
         missing = [
             s.key for s in prompts.STEPS if s.key not in state.get("done", [])
         ]
-        if missing or not state.get("tone"):
+        missing += [key for key in ("grade", "tone") if not state.get(key)]
+        if missing:
             raise RuntimeError(
-                f"Preparation phase incomplete, no summary written (open: {missing or ['tone']})."
+                f"Preparation phase incomplete, no summary written (open: {missing})."
             )
         logger.info("Writing the Executive Board summary ...")
-        summary = llm.write_summary(
+        result = llm.write_summary(
             state["material"],
             state["confirmation"],
             state["tone"],
@@ -225,15 +275,31 @@ def build_graph(llm: Any, checkpointer: Any = None):
             state.get("challenge_questions", []),
             state.get("challenge_answers", ""),
         )
-        return {"summary": summary}
+        return {"summary": result.exe_summary, "pos_points": result.pos_points}
 
+    def summarise_findings(state: SummaryState) -> dict:
+        logger.info("Summarising the findings and recommendations ...")
+        findings = llm.summarise_findings(state["material"])
+        return {"neg_points": {f.finding: f.recommendation for f in findings}}
+
+    graph.add_node("grade_suggest", grade_suggest)
+    graph.add_node("grade_ask", grade_ask)
+    graph.add_node("grade_interpret", grade_interpret)
     graph.add_node("tone_ask", tone_ask)
     graph.add_node("tone_interpret", tone_interpret)
     graph.add_node("challenge_review", challenge_review)
     graph.add_node("challenge_ask", challenge_ask)
     graph.add_node("confirm", confirm)
     graph.add_node("write_summary", write_summary)
+    graph.add_node("summarise_findings", summarise_findings)
 
+    graph.add_edge("grade_suggest", "grade_ask")
+    graph.add_edge("grade_ask", "grade_interpret")
+    graph.add_conditional_edges(
+        "grade_interpret",
+        lambda state: "next" if state["decision"] == "confirmed" else "ask",
+        {"ask": "grade_ask", "next": "tone_ask"},
+    )
     graph.add_edge("tone_ask", "tone_interpret")
     graph.add_edge("tone_interpret", "challenge_review")
     graph.add_conditional_edges(
@@ -243,6 +309,7 @@ def build_graph(llm: Any, checkpointer: Any = None):
     )
     graph.add_edge("challenge_ask", "confirm")
     graph.add_edge("confirm", "write_summary")
-    graph.add_edge("write_summary", END)
+    graph.add_edge("write_summary", "summarise_findings")
+    graph.add_edge("summarise_findings", END)
 
     return graph.compile(checkpointer=checkpointer or InMemorySaver())

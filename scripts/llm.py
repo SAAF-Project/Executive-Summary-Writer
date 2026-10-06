@@ -41,8 +41,29 @@ class ToneChoice(BaseModel):
     tone: Literal["Positive", "Balanced", "Neutral-professional", "Critical"]
 
 
+class GradeSuggestion(BaseModel):
+    grade: Literal["A", "B", "C", "D"]
+    reason: str
+
+
 class ChallengeReview(BaseModel):
     questions: List[str]
+
+
+class Finding(BaseModel):
+    finding: str
+    recommendation: str
+
+
+class FindingsSummary(BaseModel):
+    neg_points: List[Finding]
+
+
+class BoardSummary(BaseModel):
+    """The summary with the points for the "Positive aspects" box of the report."""
+
+    exe_summary: str
+    pos_points: List[str]
 
 
 # -------------------- Steps (shared by every provider) --------------------
@@ -115,6 +136,10 @@ class BaseLLM:
             task += f"\n\nConfirmed so far:\n{confirmed}"
         return self._text(task, material)
 
+    def suggest_grade(self, material: List[Dict[str, Any]]) -> GradeSuggestion:
+        """The overall grade (A-D) that the findings of the audit material point to, with the reason."""
+        return self._parsed(prompts.SUGGEST_GRADE, GradeSuggestion, material)
+
     def challenge(
         self, material: List[Dict[str, Any]], confirmed: str
     ) -> List[str]:
@@ -129,7 +154,7 @@ class BaseLLM:
         request: str,
         challenge_questions: List[str],
         challenge_answers: str,
-    ) -> str:
+    ) -> BoardSummary:
         request_block = (
             "The audit manager's original request (follow its format preferences, such as length, where "
             f"they do not conflict with the structure below):\n{request}\n\n"
@@ -155,7 +180,15 @@ class BaseLLM:
             tone_block=tone_block,
             challenge_block=challenge_block,
         )
-        return self._text(task, material)
+        return self._parsed(
+            f"{task}\n\n{prompts.SUMMARY_FIELDS}", BoardSummary, material
+        )
+
+    def summarise_findings(self, material: List[Dict[str, Any]]) -> List[Finding]:
+        """Each main finding with its recommendation, in one sentence each, for the "Main findings" table."""
+        return self._parsed(
+            prompts.SUMMARISE_FINDINGS, FindingsSummary, material
+        ).neg_points
 
 
 # -------------------- Claude --------------------

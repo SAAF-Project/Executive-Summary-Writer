@@ -22,3 +22,6 @@ scripts/prompts_local.py
 
 # Local provider configuration (endpoints, deployment names)
 scripts/openai_config.py
+
+# Office lock files
+~$*

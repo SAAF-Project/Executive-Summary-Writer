@@ -13,7 +13,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import prompts  # noqa: E402
 from graph import build_graph  # noqa: E402
-from llm import Interpretation  # noqa: E402
+from llm import (  # noqa: E402
+    BoardSummary,
+    Finding,
+    GradeSuggestion,
+    Interpretation,
+)
 
 MATERIAL = [{"type": "text", "text": "Synthetic audit material."}]
 
@@ -54,6 +59,10 @@ class FakeLLM:
         self.calls.append("refine_storyline")
         return f"Refined: {storyline}"
 
+    def suggest_grade(self, material):
+        self.calls.append("suggest_grade")
+        return GradeSuggestion(grade="B", reason="One medium-risk finding.")
+
     def challenge(self, material, confirmed):
         self.calls.append("challenge")
         return self.challenge_questions
@@ -75,7 +84,19 @@ class FakeLLM:
             "challenge_questions": challenge_questions,
             "challenge_answers": challenge_answers,
         }
-        return "### Executive Board Summary\n\nSynthetic summary."
+        return BoardSummary(
+            exe_summary="### Executive Board Summary\n\nSynthetic summary.",
+            pos_points=["Payment is well controlled."],
+        )
+
+    def summarise_findings(self, material):
+        self.calls.append("summarise_findings")
+        return [
+            Finding(
+                finding="Model is not up-to-date.",
+                recommendation="There should be a product owner.",
+            )
+        ]
 
 
 def run(llm, replies, request=""):
@@ -111,7 +132,15 @@ def test_first_response_only_asks_step_1():
 def test_user_knows_everything_goes_straight_through():
     llm = FakeLLM()
     messages, result = run(
-        llm, ["Unclear ownership", "F1 causes F2", "Ownership story", "2"]
+        llm,
+        [
+            "Unclear ownership",
+            "F1 causes F2",
+            "Ownership story",
+            "Payment is well controlled",
+            "",
+            "2",
+        ],
     )
 
     assert not any(call.startswith("propose") for call in llm.calls)
@@ -120,9 +149,17 @@ def test_user_knows_everything_goes_straight_through():
     assert (
         result["storyline"] == "Refined: Ownership story"
     )  # a supplied storyline is strengthened
+    assert result["positives"] == "Payment is well controlled"
+    assert result["grade"] == "B"  # Enter accepts the suggested grade
     assert result["tone"] == "Balanced"
     assert result["summary"].startswith("### Executive Board Summary")
-    assert llm.calls[-1] == "write_summary"
+    # the points come back next to the summary: a list, and finding -> recommendation
+    assert result["pos_points"] == ["Payment is well controlled."]
+    assert result["neg_points"] == {
+        "Model is not up-to-date.": "There should be a product owner."
+    }
+    # the findings table is filled straight after the summary, without a question
+    assert llm.calls[-2:] == ["write_summary", "summarise_findings"]
     # each next question briefly confirms the previous answer
     assert messages[1].startswith("Root cause noted: Unclear ownership")
     assert prompts.RELATIONSHIPS.question in messages[1]
@@ -144,20 +181,27 @@ def test_summary_is_never_written_before_all_steps_are_done():
         "Please provide a summary",
         "Summarise in 600 words",
         "Write the summary now",
+        "Just the summary please",
     ]:
         assert "write_summary" not in llm.calls
         assert "summary" not in result
         result = app.invoke(Command(resume=reply), config)
 
-    # three replies only got us through steps 1-3; the graph is waiting at the
-    # tone question
+    # four replies only got us through steps 1-4; the graph is waiting at the
+    # grade question, and a reply that is no grade does not get past it
+    assert "Step 5 of 6: Overall grade" in result["__interrupt__"][0].value["message"]
+    result = app.invoke(Command(resume="Write the summary"), config)
     assert "write_summary" not in llm.calls
-    assert prompts.TONE_QUESTION in result["__interrupt__"][0].value["message"]
+    message = result["__interrupt__"][0].value["message"]
+    assert message.startswith(prompts.GRADE_RETRY)
+    assert "Step 5 of 6: Overall grade" in message
 
 
 def test_unknown_root_cause_gets_proposals_and_stops_for_a_choice():
     llm = FakeLLM()
-    messages, result = run(llm, ["No", "Option 2", "skip", "skip", ""])
+    messages, result = run(
+        llm, ["No", "Option 2", "skip", "skip", "skip", "", ""]
+    )
 
     assert llm.calls[:3] == ["interpret", "propose:root_cause", "interpret"]
     assert (
@@ -173,7 +217,17 @@ def test_unknown_root_cause_gets_proposals_and_stops_for_a_choice():
 def test_rejected_proposals_are_proposed_again():
     llm = FakeLLM()
     messages, _ = run(
-        llm, ["No", "None of these, try again", "Option 1", "skip", "skip", ""]
+        llm,
+        [
+            "No",
+            "None of these, try again",
+            "Option 1",
+            "skip",
+            "skip",
+            "skip",
+            "",
+            "",
+        ],
     )
 
     assert llm.calls.count("propose:root_cause") == 2
@@ -182,13 +236,9 @@ def test_rejected_proposals_are_proposed_again():
 
 def test_skipped_steps_and_default_tone():
     llm = FakeLLM()
-    _, result = run(llm, ["skip", "skip", "skip", ""])
+    _, result = run(llm, ["skip", "skip", "skip", "skip", "", ""])
 
-    assert (
-        result["root_cause"] is None
-        and result["relationships"] is None
-        and result["storyline"] is None
-    )
+    assert all(result[step.key] is None for step in prompts.STEPS)
     assert result["tone"] == prompts.DEFAULT_TONE
     assert (
         "interpret_tone" not in llm.calls
@@ -201,11 +251,51 @@ def test_skipped_steps_and_default_tone():
 
 def test_storyline_chosen_from_proposals_is_not_refined():
     llm = FakeLLM()
-    _, result = run(llm, ["skip", "skip", "No", "Option B", "4"])
+    _, result = run(
+        llm, ["skip", "skip", "No", "Option B", "skip", "", "4"]
+    )
 
     assert "refine_storyline" not in llm.calls
     assert result["storyline"] == "Option B"
     assert result["tone"] == "Critical"
+
+
+def test_unknown_positives_get_proposals():
+    llm = FakeLLM()
+    messages, result = run(
+        llm, ["skip", "skip", "skip", "No", "1 and 2", "", ""]
+    )
+
+    assert messages[4] == f"OPTIONS for positives\n\n{prompts.POSITIVES.closing}"
+    assert result["positives"] == "1 and 2"
+
+
+def test_grade_is_suggested_from_the_findings_and_then_asked():
+    llm = FakeLLM()
+    messages, result = run(llm, ["skip", "skip", "skip", "skip", "c", ""])
+
+    assert llm.calls.count("suggest_grade") == 1
+    assert (
+        "Based on the findings listed in the report, I would suggest the overall grade B: "
+        f"{prompts.GRADES['B']}"
+    ) in messages[4]
+    assert "One medium-risk finding." in messages[4]
+    assert all(f"{g}. {text}" in messages[4] for g, text in prompts.GRADES.items())
+    # the audit manager chose another grade than the suggested one
+    assert result["grade"] == "C"
+    assert messages[5].startswith("Overall grade noted: C")
+    assert f"- Overall grade: C ({prompts.GRADES['C']})" in result["confirmation"]
+
+
+def test_findings_are_summarised_without_a_question():
+    llm = FakeLLM()
+    messages, result = run(llm, ["skip", "skip", "skip", "skip", "", ""])
+
+    assert len(messages) == 6  # steps 1-6 only
+    assert llm.calls.count("summarise_findings") == 1
+    assert result["neg_points"] == {
+        "Model is not up-to-date.": "There should be a product owner."
+    }
 
 
 def test_challenge_questions_are_asked_before_the_summary():
@@ -217,10 +307,18 @@ def test_challenge_questions_are_asked_before_the_summary():
     )
     messages, result = run(
         llm,
-        ["Ownership", "skip", "skip", "2", "Exposure unknown; COO owns it"],
+        [
+            "Ownership",
+            "skip",
+            "skip",
+            "skip",
+            "",
+            "2",
+            "Exposure unknown; COO owns it",
+        ],
     )
 
-    assert "1. What is the financial exposure?" in messages[4]
+    assert "1. What is the financial exposure?" in messages[6]
     assert llm.calls.index("challenge") < llm.calls.index("write_summary")
     assert (
         llm.summary_args["challenge_answers"]
@@ -229,20 +327,22 @@ def test_challenge_questions_are_asked_before_the_summary():
     assert result["summary"]
 
 
-def test_confirmation_has_at_most_four_bullets_and_request_is_passed_on():
+def test_confirmation_has_at_most_six_bullets_and_request_is_passed_on():
     llm = FakeLLM()
     _, result = run(
         llm,
-        ["Ownership", "F1 causes F2", "Story", "2"],
+        ["Ownership", "F1 causes F2", "Story", "Good controls", "D", "2"],
         request="3 paragraphs / 600 words",
     )
 
     bullets = result["confirmation"].splitlines()
-    assert len(bullets) == 4
+    assert len(bullets) == 6
     assert [b.split(":")[0] for b in bullets] == [
         "- Root cause",
         "- Key finding relationships",
         "- Storyline",
+        "- Positive aspects",
+        "- Overall grade",
         "- Tone",
     ]
     assert llm.summary_args["request"] == "3 paragraphs / 600 words"

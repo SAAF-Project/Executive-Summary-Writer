@@ -1,0 +1,11 @@
+# conda env create -f environment.yml
+# conda activate executive-summary-writer
+name: executive-summary-writer
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # one list of packages for pip and conda
+      - -r requirements.txt

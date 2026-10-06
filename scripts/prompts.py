@@ -5,7 +5,7 @@ single long instruction: there is one shared system prompt and one short task
 per step.
 
 These are generic texts. To use your own organisation's wording, create
-scripts/prompts_local.py (git-ignored) and redefine any of the names below
+scripts/prompts_local.py and redefine any of the names below
 there; it is loaded at the end of this file.
 """
 
@@ -67,7 +67,7 @@ ROOT_CAUSE = StepSpec(
     key="root_cause",
     label="Root cause",
     question=(
-        "Step 1 of 4: Is there a common root cause behind the main findings "
+        "Step 1 of 6: Is there a common root cause behind the main findings "
         "that you already have in mind?"
     ),
     propose="""\
@@ -87,7 +87,7 @@ RELATIONSHIPS = StepSpec(
     key="relationships",
     label="Key finding relationships",
     question=(
-        "Step 2 of 4: Should the summary bring out any relationships between "
+        "Step 2 of 6: Should the summary bring out any relationships between "
         "findings, such as one finding leading to another?"
     ),
     propose="""\
@@ -112,7 +112,7 @@ STORYLINE = StepSpec(
     key="storyline",
     label="Storyline",
     question=(
-        "Step 3 of 4: Do you already have a storyline, or a key message for "
+        "Step 3 of 6: Do you already have a storyline, or a key message for "
         "the Executive Board, in mind?"
     ),
     propose="""\
@@ -132,13 +132,75 @@ far. Return the options and nothing else. No tone.""",
     refine=True,
 )
 
-STEPS = (ROOT_CAUSE, RELATIONSHIPS, STORYLINE)
+POSITIVES = StepSpec(
+    key="positives",
+    label="Positive aspects",
+    question=(
+        "Step 4 of 6: What do you see as the positive aspects of the audited "
+        'area? They go in the "Positive aspects" box of the report.'
+    ),
+    propose="""\
+The audit manager has not named the positive aspects yet.
+
+From the audit material, suggest up to five things that work well in the \
+audited area. One short sentence each. Return a Markdown table with the \
+columns "Option" (1, 2, 3, ...) and "Positive aspect", and nothing else.
+
+Stay on what works well: no findings, no recommendations, no tone.""",
+    closing=(
+        "Which of these should the report show? You can pick several, adjust "
+        "them, or give your own."
+    ),
+)
+
+STEPS = (ROOT_CAUSE, RELATIONSHIPS, STORYLINE, POSITIVES)
+
+# -------------------- Step 5: overall grade --------------------
+# The model suggests a grade and the audit manager chooses. The grading table
+# and the question are fixed texts: in a user interface the choice becomes a
+# drop-down menu.
+
+GRADES = {
+    "A": "Risks identified in the audited process are well mitigated. Limited actions might be required.",
+    "B": "Risks identified in the audited process are adequately mitigated but actions are required on weaker aspects.",
+    "C": "Risks identified in the audited process are not sufficiently mitigated (one or more). Short-term actions are required.",
+    "D": "Risks identified in the audited process are not mitigated (one or more). Immediate actions are required.",
+}
+GRADE_TABLE = "\n".join(f"{grade}. {text}" for grade, text in GRADES.items())
+
+SUGGEST_GRADE = f"""\
+Suggest the overall grade of the audited process.
+
+Base it on all the findings in the audit material. In a report deck, each \
+finding is a block that starts with "Finding title:" and has the lines \
+"Risk" (High, Medium or Low), "Finding", "Root Cause(s)", "Risk(s)", \
+"Stake(s)" and "Recommendation". Weigh how many findings there are, how high \
+their risk is, and how urgent the recommended actions are.
+
+Grading table:
+{GRADE_TABLE}
+
+Return the "grade" (A, B, C or D) and the "reason": one or two sentences \
+that name the findings the grade rests on. Use only what the audit material \
+says."""
+
+GRADE_QUESTION = (
+    "Step 5 of 6: Overall grade. Based on the findings listed in the report, "
+    "I would suggest the overall grade {grade}: {definition}\n\n"
+    "{reason}\n\n"
+    "What do you think?\n\n"
+    f"{GRADE_TABLE}\n\n"
+    "Press Enter to accept {grade}, or reply A, B, C or D."
+)
+GRADE_RETRY = "Please reply A, B, C or D, or press Enter to accept the suggestion."
+# replies that accept the suggested grade
+GRADE_ACCEPT = ("", "YES", "Y", "OK", "OKAY", "AGREE", "AGREED")
 
 TONES = ("Positive", "Balanced", "Neutral-professional", "Critical")
 DEFAULT_TONE = "Balanced"
 
 TONE_QUESTION = (
-    "Step 4 of 4: Which tone should the summary have?\n\n"
+    "Step 6 of 6: Which tone should the summary have?\n\n"
     "1. Positive\n2. Balanced\n3. Neutral-professional\n4. Critical\n\n"
     "Press Enter for the default (Balanced)."
 )
@@ -198,10 +260,11 @@ around. Keep the audit manager's message and intent. Do not add facts that \
 are not in the audit material or in what has been confirmed so far. Return \
 the storyline and nothing else."""
 
-# -------------------- Step 5: challenge review --------------------
+# -------------------- Challenge review --------------------
 
 CHALLENGE_REVIEW = """\
-Root cause, relationships, storyline and tone are settled.
+Root cause, relationships, storyline, positive aspects, overall grade and \
+tone are settled.
 
 Now read the available information the way each of these readers would:
 - an Executive Board member
@@ -236,6 +299,8 @@ board level. Leave out the rest.
 - Explain how the findings relate. Only the relationships confirmed above may \
 be stated as facts.
 - Build the summary around the confirmed storyline.
+- Give the confirmed overall grade and what it means as the overall audit \
+conclusion.
 - Where an item above was skipped, rely on what the audit material supports \
 and present it as Internal Audit's view, not as an established fact.
 - No jargon, business UK English, factual and objective.
@@ -263,6 +328,46 @@ Then add a separate section:
 
 A bullet list of the important questions that the available information \
 leaves unanswered."""
+
+# Added to WRITE_SUMMARY: the summary is returned together with the points for
+# the "Positive aspects" box of the report.
+SUMMARY_FIELDS = """\
+Return two fields.
+
+"exe_summary": the complete text described above as Markdown, with both \
+headings.
+
+"pos_points": the positive aspects for the report, as two to five short \
+sentences, one per point, for example "Payment is well controlled." Use the \
+positive aspects confirmed above. Where that item was skipped, take them \
+from the audit material."""
+
+# -------------------- Main findings table --------------------
+# One direct call, without questions to the audit manager: the findings and
+# their recommendations are in the audit material already.
+
+SUMMARISE_FINDINGS = """\
+Fill the "Main findings" table of the report: one line per finding, with a \
+quick summary of the finding and of its recommendation.
+
+Take the findings from the audit material. In a report deck, each finding is \
+a block that starts with "Finding title:" and has the lines "Finding", "Root \
+Cause(s)", "Risk(s)", "Stake(s)" and "Recommendation".
+
+Include the high-risk findings, or the main medium-risk findings where there \
+are no high-risk ones. Four at most, in the order of the report.
+
+For each one return:
+- "finding": one short sentence that says what is wrong, for example \
+"Payment is not well controlled."
+- "recommendation": one short sentence that sums up the recommendation given \
+for this finding, for example "The team should have a gateway." Where the \
+material gives no recommendation for a finding, suggest one that follows \
+from its root cause.
+
+Use only what the audit material says about each finding. Do not mention \
+that the text was written or suggested by AI: the application adds that \
+note. If the material holds no findings, return an empty list."""
 
 # -------------------- Local wording (optional, not published) --------------------
 
