@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T11:52:53.287379Z",
+  "title": "Design System: ESWriter",
+  "extensions": {
+    "colorMeta": {
+      "blue": {
+        "role": "primary",
+        "displayName": "Corporate Blue",
+        "canonical": "#164dcc",
+        "tonalRamp": [
+          "oklch(15% 0.20449 263.15)",
+          "oklch(27% 0.20449 263.15)",
+          "oklch(38% 0.20449 263.15)",
+          "oklch(50% 0.20449 263.15)",
+          "oklch(61% 0.20449 263.15)",
+          "oklch(73% 0.20449 263.15)",
+          "oklch(84% 0.20449 263.15)",
+          "oklch(95% 0.20449 263.15)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "blue-hover": {
+        "role": "primary",
+        "displayName": "Deep Corporate Blue",
+        "canonical": "#123eab",
+        "tonalRamp": [
+          "oklch(15% 0.18055 263.59)",
+          "oklch(27% 0.18055 263.59)",
+          "oklch(38% 0.18055 263.59)",
+          "oklch(50% 0.18055 263.59)",
+          "oklch(61% 0.18055 263.59)",
+          "oklch(73% 0.18055 263.59)",
+          "oklch(84% 0.18055 263.59)",
+          "oklch(95% 0.18055 263.59)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "navy": {
+        "role": "primary",
+        "displayName": "Reference Navy",
+        "canonical": "#293a65",
+        "tonalRamp": [
+          "oklch(15% 0.07808 266.26)",
+          "oklch(27% 0.07808 266.26)",
+          "oklch(38% 0.07808 266.26)",
+          "oklch(50% 0.07808 266.26)",
+          "oklch(61% 0.07808 266.26)",
+          "oklch(73% 0.07808 266.26)",
+          "oklch(84% 0.07808 266.26)",
+          "oklch(95% 0.07808 266.26)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "cyan": {
+        "role": "primary",
+        "displayName": "Deck Cyan",
+        "canonical": "#009ee3",
+        "tonalRamp": [
+          "oklch(15% 0.14809 238.34)",
+          "oklch(27% 0.14809 238.34)",
+          "oklch(38% 0.14809 238.34)",
+          "oklch(50% 0.14809 238.34)",
+          "oklch(61% 0.14809 238.34)",
+          "oklch(73% 0.14809 238.34)",
+          "oklch(84% 0.14809 238.34)",
+          "oklch(95% 0.14809 238.34)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "gradient-indigo": {
+        "role": "primary",
+        "displayName": "Deck Indigo",
+        "canonical": "#0800b9",
+        "tonalRamp": [
+          "oklch(15% 0.24474 265.13)",
+          "oklch(27% 0.24474 265.13)",
+          "oklch(38% 0.24474 265.13)",
+          "oklch(50% 0.24474 265.13)",
+          "oklch(61% 0.24474 265.13)",
+          "oklch(73% 0.24474 265.13)",
+          "oklch(84% 0.24474 265.13)",
+          "oklch(95% 0.24474 265.13)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Audit Ink",
+        "canonical": "#1b2946",
+        "tonalRamp": [
+          "oklch(15% 0.05693 263.65)",
+          "oklch(27% 0.05693 263.65)",
+          "oklch(38% 0.05693 263.65)",
+          "oklch(50% 0.05693 263.65)",
+          "oklch(61% 0.05693 263.65)",
+          "oklch(73% 0.05693 263.65)",
+          "oklch(84% 0.05693 263.65)",
+          "oklch(95% 0.05693 263.65)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Slate Copy",
+        "canonical": "#607087",
+        "tonalRamp": [
+          "oklch(15% 0.04097 257.42)",
+          "oklch(27% 0.04097 257.42)",
+          "oklch(38% 0.04097 257.42)",
+          "oklch(50% 0.04097 257.42)",
+          "oklch(61% 0.04097 257.42)",
+          "oklch(73% 0.04097 257.42)",
+          "oklch(84% 0.04097 257.42)",
+          "oklch(95% 0.04097 257.42)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Cool Ground",
+        "canonical": "#f7f9fc",
+        "tonalRamp": [
+          "oklch(15% 0.00453 258.32)",
+          "oklch(27% 0.00453 258.32)",
+          "oklch(38% 0.00453 258.32)",
+          "oklch(50% 0.00453 258.32)",
+          "oklch(61% 0.00453 258.32)",
+          "oklch(73% 0.00453 258.32)",
+          "oklch(84% 0.00453 258.32)",
+          "oklch(95% 0.00453 258.32)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Work Area",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0.00000 0.00)",
+          "oklch(27% 0.00000 0.00)",
+          "oklch(38% 0.00000 0.00)",
+          "oklch(50% 0.00000 0.00)",
+          "oklch(61% 0.00000 0.00)",
+          "oklch(73% 0.00000 0.00)",
+          "oklch(84% 0.00000 0.00)",
+          "oklch(95% 0.00000 0.00)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Quiet Divider",
+        "canonical": "#e2e7ef",
+        "tonalRamp": [
+          "oklch(15% 0.01210 259.82)",
+          "oklch(27% 0.01210 259.82)",
+          "oklch(38% 0.01210 259.82)",
+          "oklch(50% 0.01210 259.82)",
+          "oklch(61% 0.01210 259.82)",
+          "oklch(73% 0.01210 259.82)",
+          "oklch(84% 0.01210 259.82)",
+          "oklch(95% 0.01210 259.82)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "pale": {
+        "role": "neutral",
+        "displayName": "Selection Tint",
+        "canonical": "#edf3fe",
+        "tonalRamp": [
+          "oklch(15% 0.01609 262.75)",
+          "oklch(27% 0.01609 262.75)",
+          "oklch(38% 0.01609 262.75)",
+          "oklch(50% 0.01609 262.75)",
+          "oklch(61% 0.01609 262.75)",
+          "oklch(73% 0.01609 262.75)",
+          "oklch(84% 0.01609 262.75)",
+          "oklch(95% 0.01609 262.75)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "green": {
+        "role": "secondary",
+        "displayName": "Review Green",
+        "canonical": "#176c51",
+        "tonalRamp": [
+          "oklch(15% 0.08972 166.54)",
+          "oklch(27% 0.08972 166.54)",
+          "oklch(38% 0.08972 166.54)",
+          "oklch(50% 0.08972 166.54)",
+          "oklch(61% 0.08972 166.54)",
+          "oklch(73% 0.08972 166.54)",
+          "oklch(84% 0.08972 166.54)",
+          "oklch(95% 0.08972 166.54)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      },
+      "green-pale": {
+        "role": "secondary",
+        "displayName": "Success Tint",
+        "canonical": "#edf8f2",
+        "tonalRamp": [
+          "oklch(15% 0.01404 162.48)",
+          "oklch(27% 0.01404 162.48)",
+          "oklch(38% 0.01404 162.48)",
+          "oklch(50% 0.01404 162.48)",
+          "oklch(61% 0.01404 162.48)",
+          "oklch(73% 0.01404 162.48)",
+          "oklch(84% 0.01404 162.48)",
+          "oklch(95% 0.01404 162.48)"
+        ],
+        "rampSource": "Synthesized OKLCH panel ramp; the frontmatter color remains normative."
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Application Headline",
+        "purpose": "Page headings; desktop 30px, editor 25px, narrow 25px."
+      },
+      "title": {
+        "displayName": "Section Title",
+        "purpose": "Default second-level headings; context-specific source values range from 16px to 22px."
+      },
+      "title-small": {
+        "displayName": "Small Title",
+        "purpose": "Base third-level heading; dense inspector uses 12px desktop and 14px mobile."
+      },
+      "body": {
+        "displayName": "UI Body",
+        "purpose": "Default application text; supporting panels commonly use 12px."
+      },
+      "label": {
+        "displayName": "Action Label",
+        "purpose": "Compact buttons; navigation uses 13px."
+      },
+      "field": {
+        "displayName": "Form Value",
+        "purpose": "Desktop compact input; mobile editing increases to 16px."
+      }
+    },
+    "shadows": [
+      {
+        "name": "source-preview",
+        "value": "0 5px 18px #243a6014",
+        "purpose": "Full source canvas only. Small preview canvases have no shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": "background .16s ease-out, color .16s ease-out",
+        "purpose": "Button background and text hover transitions."
+      },
+      {
+        "name": "upload-state",
+        "value": "background .15s, border-color .15s",
+        "purpose": "Drag-state transition for the upload boundary."
+      },
+      {
+        "name": "busy-spinner",
+        "value": "spin 1s linear infinite",
+        "purpose": "Import/loading indicator; keyframe rotates to 360deg."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation-duration: .01ms !important; transition-duration: .01ms !important",
+        "purpose": "Applied when prefers-reduced-motion is reduce; page scrolling becomes auto."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "600px",
+        "query": "max-width",
+        "purpose": "Sticky top navigation, single-column library and editor, horizontal slide rail."
+      },
+      {
+        "name": "stack-panels",
+        "value": "800px",
+        "query": "max-width",
+        "purpose": "Dashboard stacks; inspector moves under preview beside slide rail."
+      },
+      {
+        "name": "icon-sidebar",
+        "value": "1050px",
+        "query": "max-width",
+        "purpose": "72px icon sidebar."
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1250px",
+        "query": "max-width",
+        "purpose": "195px sidebar, 28px gutters, two-column library."
+      },
+      {
+        "name": "wide-editor",
+        "value": "1600px",
+        "query": "min-width",
+        "purpose": "185px slide rail and 345px inspector."
+      }
+    ],
+    "focus": [
+      {
+        "name": "keyboard",
+        "css": "outline: 3px solid #80b9ff; outline-offset: 3px;",
+        "purpose": "Buttons, links, disclosure summaries, inputs, textareas, and selects."
+      },
+      {
+        "name": "search-container",
+        "css": "outline: 2px solid #8abaff; outline-offset: 1px;",
+        "purpose": "Search focus-within treatment."
+      }
+    ],
+    "gradients": [
+      {
+        "name": "brand-tile",
+        "value": "linear-gradient(135deg, #0800b9, #007dcc)"
+      },
+      {
+        "name": "workflow-current",
+        "value": "linear-gradient(90deg, #0800b9, #009ee3)"
+      },
+      {
+        "name": "upload-surface",
+        "value": "linear-gradient(140deg, #fff 5%, #f0f7ff)"
+      },
+      {
+        "name": "reference-panel",
+        "value": "linear-gradient(115deg, #243453 0%, #293f68 70%, #284a76)"
+      },
+      {
+        "name": "reference-band",
+        "value": "linear-gradient(150deg, #0800b9, #009ee3)"
+      }
+    ],
+    "sources": [
+      "src/app/globals.css",
+      "src/components/template-studio.tsx",
+      "src/components/slide-preview.tsx"
+    ],
+    "notCanonized": "No shipping raster assets or removed eyebrow labels are canonized. Runtime deck appearance remains user data; compact 7–10px auxiliary labels are observed, not promoted to general body-copy tokens."
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The solid blue upload and save action.",
+      "html": "<button class=\"ds-button ds-primary\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>Upload presentation</button>",
+      "css": ".ds-button { display:inline-flex; justify-content:center; align-items:center; gap:8px; min-height:40px; padding:10px 16px; border-radius:6px; font:600 12px/1.4 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; white-space:nowrap; cursor:pointer; transition:background .16s ease-out,color .16s ease-out; } .ds-button:disabled { cursor:not-allowed; opacity:.48; } .ds-primary { background:var(--blue,#164dcc); color:#fff; border:1px solid var(--blue,#164dcc); } .ds-primary:hover:not(:disabled) { background:var(--blue-hover,#123eab); border-color:var(--blue-hover,#123eab); } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A bordered action for editing, downloads, and export.",
+      "html": "<button class=\"ds-button ds-secondary\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h8\"/></svg>Export definition</button>",
+      "css": ".ds-button { display:inline-flex; justify-content:center; align-items:center; gap:8px; min-height:40px; padding:10px 16px; border-radius:6px; font:600 12px/1.4 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; white-space:nowrap; cursor:pointer; transition:background .16s ease-out,color .16s ease-out; } .ds-button:disabled { cursor:not-allowed; opacity:.48; } .ds-secondary { background:#fff; color:#324766; border:1px solid #d7deea; } .ds-secondary:hover:not(:disabled) { background:#f0f5fd; border-color:#b5c6e3; } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Inline navigation and supporting actions.",
+      "html": "<button class=\"ds-text\">Explore reference outline<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-text { display:inline-flex; align-items:center; justify-content:center; gap:7px; font:600 12px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; color:var(--blue,#164dcc); background:transparent; border:0; padding:5px 0; text-align:left; cursor:pointer; } .ds-text:hover { color:#082e91; text-decoration:underline; text-underline-offset:4px; } .ds-text:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Inspector Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Compact desktop form values with stronger mobile sizing.",
+      "html": "<label class=\"ds-field-label\">Template name<input class=\"ds-field\" placeholder=\"Name your template\" /></label>",
+      "css": ".ds-field-label { display:block; font:500 10px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; color:#415473; } .ds-field { display:block; width:100%; margin-top:6px; border:1px solid #d9e1ed; border-radius:5px; padding:8px 9px; background:#fff; color:var(--ink,#1b2946); font:400 11px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; caret-color:var(--blue,#164dcc); } .ds-field:hover { border-color:#b7c7df; } .ds-field::placeholder { color:var(--muted,#607087); opacity:1; } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(max-width:600px) { .ds-field-label { font-size:12px; } .ds-field { font-size:16px; padding:10px; } } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-selected",
+      "description": "Pale blue selection and compact SVG navigation.",
+      "html": "<nav aria-label=\"Main navigation\"><button class=\"ds-nav ds-selected\" aria-current=\"page\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Templates<span class=\"ds-count\">3</span></button><button class=\"ds-nav\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>Agent workspace</button></nav>",
+      "css": ".ds-nav { width:100%; display:flex; align-items:center; gap:10px; background:transparent; border:0; border-radius:7px; padding:12px; text-align:left; color:#61718a; font:400 13px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; margin-bottom:5px; cursor:pointer; } .ds-nav:hover { background:#f5f7fb; color:var(--ink,#1b2946); } .ds-nav.ds-selected { background:var(--pale,#edf3fe); color:var(--blue,#164dcc); font-weight:620; } .ds-count { margin-left:auto; font-size:11px; background:#dce7fb; padding:0 6px; border-radius:4px; min-width:20px; text-align:center; font-variant-numeric:tabular-nums; } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-green",
+      "description": "Neutral, manual-review, and saved status treatments.",
+      "html": "<span class=\"ds-badge ds-neutral\">Decoder not connected</span> <span class=\"ds-badge ds-blue\">Manual review</span> <span class=\"ds-badge ds-green\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg>Saved</span>",
+      "css": ".ds-badge { display:inline-flex; align-items:center; gap:5px; font:550 10px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; border-radius:4px; padding:3px 7px; white-space:nowrap; } .ds-neutral { background:#eff2f7; color:#59657a; } .ds-blue { background:#eaf1ff; color:#2356b0; } .ds-green { background:var(--green-pale,#edf8f2); color:var(--green,#176c51); } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Template Card",
+      "kind": "card",
+      "refersTo": "template-card",
+      "description": "A flat library item with an approximate source thumbnail.",
+      "html": "<article class=\"ds-card\"><button class=\"ds-card-open\"><div class=\"ds-thumb\"><div class=\"ds-canvas\"><div class=\"ds-object\">Internal audit report</div></div></div><div class=\"ds-card-copy\"><h3>Annual audit template</h3><p>13 slides<span>Updated 6 Oct 2026</span></p></div></button><div class=\"ds-card-footer\"><button class=\"ds-text\">Open template<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button></div></article>",
+      "css": ".ds-card { border:1px solid var(--line,#e2e7ef); border-radius:var(--radius,12px); background:#fff; overflow:hidden; color:var(--ink,#1b2946); font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; } .ds-card-open { border:0; background:transparent; width:100%; text-align:left; padding:0; color:inherit; cursor:pointer; } .ds-thumb { background:#eef2f8; padding:18px; border-bottom:1px solid var(--line,#e2e7ef); } .ds-card-open:hover .ds-thumb { background:#e5ecf8; } .ds-canvas { position:relative; aspect-ratio:16/9; background:white; overflow:hidden; container-type:inline-size; font-family:Arial,sans-serif; } .ds-object { position:absolute; left:6%; top:12%; width:88%; height:30%; color:#293a65; font-size:5cqw; font-weight:400; line-height:1.18; padding:.3cqw .4cqw; } .ds-card-copy { padding:17px 18px 14px; } .ds-card-copy h3 { margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:650; line-height:1.5; } .ds-card-copy p { display:flex; justify-content:space-between; margin:8px 0 0; font-size:10px; gap:8px; flex-wrap:wrap; color:var(--muted,#607087); } .ds-card-footer { padding:9px 18px; border-top:1px solid #edf0f5; } .ds-text { display:inline-flex; align-items:center; gap:7px; font:600 12px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; color:var(--blue,#164dcc); background:transparent; border:0; padding:5px 0; cursor:pointer; } .ds-text:hover { color:#082e91; text-decoration:underline; text-underline-offset:4px; } .ds-text:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Workflow Strip",
+      "kind": "custom",
+      "description": "A current-step gradient underline with completion and future states.",
+      "html": "<ol class=\"ds-workflow\" aria-label=\"Template setup progress\"><li class=\"ds-complete\"><span class=\"ds-marker\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg></span><span>Upload presentation</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></li><li class=\"ds-current\" aria-current=\"step\"><span class=\"ds-marker\">2</span><span>Review interpretation</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></li><li><span class=\"ds-marker\">3</span><span>Save template</span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></li><li class=\"ds-future\"><span class=\"ds-marker\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg></span><span>Generate with agent<small>Coming later</small></span></li></ol>",
+      "css": ".ds-workflow { display:flex; list-style:none; padding:0; margin:0; background:white; border:1px solid var(--line,#e2e7ef); border-radius:8px; overflow:hidden; font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; } .ds-workflow li { flex:1; padding:18px 17px; display:flex; align-items:center; gap:9px; font-size:11px; color:var(--muted,#607087); position:relative; } .ds-workflow li>svg { margin-left:auto; color:#b4bed0; } .ds-workflow .ds-current { color:var(--blue,#164dcc); background:#f2f6ff; font-weight:600; } .ds-current:after { content:\"\"; position:absolute; height:2px; bottom:0; left:0; right:0; background:linear-gradient(90deg,#0800b9,#009ee3); } .ds-marker { display:flex; align-items:center; justify-content:center; width:22px; height:22px; border:1px solid #d5dce8; border-radius:50%; font-size:10px; flex-shrink:0; font-variant-numeric:tabular-nums; } .ds-current .ds-marker { background:var(--blue,#164dcc); border-color:var(--blue,#164dcc); color:#fff; } .ds-workflow .ds-complete { color:#365f79; } .ds-complete .ds-marker { color:var(--green,#176c51); border-color:#c1dfd2; background:#eef8f2; } .ds-workflow small { display:block; margin-top:1px; font-size:9px; font-weight:400; } .ds-workflow .ds-future { background:#fcfdff; } @media(max-width:600px) { .ds-workflow { border-radius:6px; } .ds-workflow li { font-size:8px; display:block; text-align:center; padding:12px 5px; } .ds-marker { margin:0 auto 6px; width:21px; height:21px; } .ds-workflow li>svg { display:none; } .ds-workflow small { font-size:7px; margin-top:3px; } } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Upload Surface",
+      "kind": "custom",
+      "refersTo": "upload-panel",
+      "description": "The pale gradient, dashed boundary, and solid upload action.",
+      "html": "<section class=\"ds-upload\"><div class=\"ds-paper-visual\"><div class=\"ds-paper-back\"></div><div class=\"ds-paper-front\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"35\" height=\"35\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h8\"/></svg><span>PPTX</span></div><span class=\"ds-upload-round\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg></span></div><h2>Start with your presentation</h2><p>Upload a PowerPoint deck, review its structure,<br />and make it your template.</p><button class=\"ds-button ds-primary\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>Choose a presentation</button><span class=\"ds-drop-copy\">or drag and drop it here</span><span class=\"ds-file-limit\">.pptx format · Up to 25 MB · 100 slides</span></section>",
+      "css": ".ds-upload { min-height:380px; border:1px dashed #b9cbe3; border-radius:var(--radius,12px); background:linear-gradient(140deg,#fff 5%,#f0f7ff); display:flex; align-items:center; flex-direction:column; justify-content:center; padding:28px; text-align:center; color:var(--ink,#1b2946); font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; transition:background .15s,border-color .15s; } .ds-upload.ds-dragging { background:#e0edff; border-color:var(--blue,#164dcc); } .ds-upload h2 { margin:0; font-size:21px; line-height:1.35; font-weight:620; letter-spacing:-.018em; } .ds-upload p { color:var(--muted,#607087); margin:10px 0 22px; font-size:12px; line-height:1.75; } .ds-drop-copy { margin-top:10px; font-size:11px; color:#607087; } .ds-file-limit { margin-top:21px; font-size:10px; color:#66768c; } .ds-paper-visual { position:relative; width:90px; height:85px; margin-bottom:21px; } .ds-paper-back,.ds-paper-front { position:absolute; width:57px; height:72px; border-radius:7px; } .ds-paper-back { top:1px; left:13px; border:1px solid #bacfee; background:#e5efff; transform:rotate(-12deg); } .ds-paper-front { top:6px; left:23px; background:#fff; border:1px solid #a5c1e9; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:#3870bc; } .ds-paper-front span { font-size:9px; font-weight:700; letter-spacing:.02em; } .ds-upload-round { position:absolute; bottom:1px; right:0; width:31px; height:31px; border-radius:50%; background:var(--blue,#164dcc); color:white; display:flex; align-items:center; justify-content:center; border:3px solid #f2f7ff; } .ds-button { display:inline-flex; justify-content:center; align-items:center; gap:8px; min-height:40px; padding:10px 16px; border-radius:6px; font:600 12px/1.4 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; white-space:nowrap; cursor:pointer; transition:background .16s ease-out,color .16s ease-out; } .ds-button:disabled { cursor:not-allowed; opacity:.48; } .ds-primary { background:var(--blue,#164dcc); color:#fff; border:1px solid var(--blue,#164dcc); } .ds-primary:hover:not(:disabled) { background:var(--blue-hover,#123eab); border-color:var(--blue-hover,#123eab); } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    },
+    {
+      "name": "Source Object Disclosure",
+      "kind": "custom",
+      "description": "A selected source object with editable definition and source-text region.",
+      "html": "<details class=\"ds-disclosure ds-enabled\"><summary><span class=\"ds-kind\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h8\"/></svg></span><span class=\"ds-summary\"><strong>Finding</strong><small>Source text box</small></span><span class=\"ds-check\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m20 6-11 11-5-5\"/></svg></span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></summary><div class=\"ds-source\"><span>Original source text</span><p>Finding description from the presentation.</p></div></details>",
+      "css": ".ds-disclosure { border:1px solid #e0e6ef; border-radius:6px; margin-top:7px; background:white; color:var(--ink,#1b2946); font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", Arial, sans-serif; } .ds-disclosure.ds-enabled { border-color:#adcaee; background:#fcfdff; } .ds-disclosure summary { display:flex; align-items:center; gap:7px; padding:10px; list-style:none; cursor:pointer; } .ds-disclosure summary::-webkit-details-marker { display:none; } .ds-kind { color:#7b8ba4; align-self:flex-start; margin-top:2px; } .ds-summary { min-width:0; flex:1; } .ds-summary strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; font-weight:500; } .ds-summary small { display:block; font-size:8px; color:var(--muted,#607087); margin-top:3px; } .ds-check { color:#1b7953; } .ds-disclosure[open] summary>svg:last-child { transform:rotate(180deg); } .ds-source { margin:0 12px 13px; background:#f4f6fa; padding:9px; border-radius:5px; } .ds-source>span { font-size:9px; font-weight:500; color:#526580; } .ds-source p { font-size:10px; color:var(--muted,#607087); white-space:pre-wrap; overflow-wrap:anywhere; margin:4px 0 0; max-height:160px; overflow-y:auto; } .ds-button:focus-visible,.ds-field:focus-visible,.ds-nav:focus-visible,.ds-card-open:focus-visible,.ds-disclosure summary:focus-visible { outline:3px solid #80b9ff; outline-offset:3px; } @media(max-width:600px) { .ds-summary strong { font-size:12px; } .ds-summary small { font-size:10px; } .ds-disclosure summary { padding:12px; } .ds-source p { font-size:11px; } } @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Corporate Audit Workspace",
+    "overview": "White work areas on a cool gray ground make this a quiet, practical application. The supplied AFKL presentation supplies the navy, blue, and cyan character; the application translates it into compact controls, legible section headings, and restrained blue gradients. These are interface conventions, not a reproduction of the presentation's page layouts or logo.\n\nThe system supports close review. Borders distinguish work areas, navy anchors reference material, and blue identifies actions and the current selection. Most supporting information is compact. Uploaded presentation content has its own appearance and must remain visually distinct from application controls.",
+    "keyCharacteristics": [
+      "White surfaces and cool gray ground with a single blue action accent.",
+      "Compact system UI typography and restrained heading weights.",
+      "Flat bordered containers; a soft shadow reserved for the source preview.",
+      "Small control corners, larger panel corners, and inline SVG icons.",
+      "Responsive review areas that become a stacked workflow on narrow screens."
+    ],
+    "rules": [
+      {
+        "name": "The Action Blue Rule",
+        "body": "Blue identifies an action, selection, or progress state. Use navy for reference context and green for successful completion.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gradient Accent Rule",
+        "body": "Preserve gradients in the small brand tile, current workflow underline, upload surface, and reference region. Main buttons and editable fields use solid fills.",
+        "section": "colors"
+      },
+      {
+        "name": "The Source Type Rule",
+        "body": "Preview typography scales with its slide container in `cqw`. Application text uses the UI ramp; do not apply source-deck typography to application controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Review Order Rule",
+        "body": "Preserve slide selection, preview, and editable interpretation as distinct regions through responsive changes. Compact the layout before stacking; keep the source visible above the mobile inspector.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Work Area Rule",
+        "body": "Keep application panels and controls flat. Reserve the recorded shadow for the full source preview.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use the frontmatter palette and type ramp for application controls.",
+      "**Do** keep action blue, completion green, and reference navy assigned to their recorded roles.",
+      "**Do** preserve the visible focus treatment and full-opacity muted placeholders.",
+      "**Do** use flat bordered panels and reserve the soft shadow for the full source slide.",
+      "**Do** distinguish approximate uploaded source content, reviewed definitions, and unavailable future actions in their labels and states.",
+      "**Do** keep icons as inline SVGs and treat uploaded images as runtime content."
+    ],
+    "donts": [
+      "**Don't** add decorative eyebrow labels above page headings or saved-state panels.",
+      "**Don't** add an external typography dependency or copy a corporate logo into the application shell.",
+      "**Don't** promote colors, fonts, images, or geometry from an uploaded deck into the application design system.",
+      "**Don't** use success styling to imply that a future decoder or generation agent is connected.",
+      "**Don't** replace the flat work-area hierarchy with ornamental shadows or broad button gradients."
+    ]
+  }
+}
