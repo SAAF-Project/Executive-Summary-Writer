@@ -4,7 +4,10 @@ import base64
 from pathlib import Path
 from typing import Any, Dict, List
 
+from sanitizer import sanitize_evidence
+
 TEXT_SUFFIXES = {".txt", ".md"}
+
 
 
 def _docx_text(path: Path) -> str:
@@ -47,10 +50,19 @@ def load_material(paths: List[Path]) -> List[Dict[str, Any]]:
             )
         if not text.strip():
             raise ValueError(f"No text found in {path.name}")
+        
+        fenced_block, nonce, defanged = sanitize_evidence(text.strip(), tag_name="audit_material")
+        # Include file metadata in the outer opening tag
+        fenced_block = fenced_block.replace(
+            f'<audit_material nonce="{nonce}">',
+            f'<audit_material file="{path.name}" nonce="{nonce}">',
+            1
+        )
         blocks.append(
             {
                 "type": "text",
-                "text": f'<audit_material file="{path.name}">\n{text.strip()}\n</audit_material>',
+                "text": fenced_block,
             }
         )
     return blocks
+

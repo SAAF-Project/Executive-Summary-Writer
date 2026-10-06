@@ -47,6 +47,8 @@ audit whose report is being summarised.
 | CO-3 — Nothing is invented and proposals are not presented as facts: the summary uses only the audit material and what the audit manager confirmed, and remaining gaps are listed. | IIA Global Internal Audit Standards 14.3 (Evaluation of Findings) and EU AI Act Art. 13 (transparency) | A plausible but unsupported root cause or causal link in a board paper is the main harm this agent could do. |
 | CO-4 — The output is fit for the Board: short, in business language, limited to the risks that matter at board level, in the agreed structure. | IIA Global Internal Audit Standards 11.3 (Communicating Results) and 15.1 (Final Engagement Communication) | A summary that is long, technical or lists every low-risk finding fails its purpose even if every fact is right. |
 | CO-5 — Credentials and audit material are protected: no secrets in code, and no real audit material or generated summaries in the repository. | ISO/IEC 27001 Annex A (access control and protection of information) | Draft audit reports are confidential. |
+| CO-6 — Untrusted audit evidence cannot hijack execution or whitewash findings: external material is isolated via cryptographic nonces, delimiter breakouts are escaped, and prompt injection directives are neutralized before model ingestion. | OWASP LLM Top 10 (2025) LLM01 (Prompt Injection), EU AI Act Art. 15 (Cybersecurity & Robustness), ISO/IEC 27001 Annex A | Auditees submitting management responses or evidence could embed adversarial instructions to suppress adverse findings, manipulate root causes, or bypass auditor confirmations. |
+
 
 ## 3. Acceptance criteria (testable, pass/fail)
 
@@ -120,6 +122,21 @@ audit whose report is being summarised.
 - Given the repository, `output/` and `data/` are git-ignored, and the only
   audit material tracked is the synthetic sample in `samples/`.
 
+### CO-6 — Evidence isolation and prompt injection defense
+
+- Given audit material containing closing tags (`</audit_material>`), the tags are safely
+  escaped and cannot prematurely terminate the fenced content block.
+- Given audit material with unpredictable cryptographic nonces (`<audit_material nonce="...">`),
+  nested content cannot forge container boundaries.
+- Given adversarial directive phrases in management responses (such as "SYSTEM OVERRIDE",
+  "ignore previous instructions", "reclassify as exemplary"), directives are defanged into
+  `[DEFANGED_INSTRUCTION]` tokens before model ingestion and flagged in audit logs.
+- Given adversarial attempts to extract the system prompt via uploaded evidence, the agent
+  treats the text as passive evidence and does not regurgitate its system instructions.
+- Given any adversarial text in uploaded evidence, the LangGraph state machine cannot be
+  bypassed, and the final Executive Board summary cannot be triggered without explicit human
+  auditor confirmation of all required preparation steps.
+
 ## 4. Good output / never do
 
 | A correct output MUST contain | The agent must NEVER |
@@ -129,7 +146,9 @@ audit whose report is being summarised.
 | ✓ The confirmed root cause and storyline as the backbone of the text | ✕ State a proposed but unconfirmed relationship as a fact |
 | ✓ A "Potential Gaps for Executive Board Consideration" section | ✕ Choose the root cause, storyline or tone on the audit manager's behalf (other than the stated default tone) |
 | ✓ Plain business UK English | ✕ Present the summary as final without the audit manager's review |
-| | ✕ Hard-code credentials, or commit real audit material or generated summaries |
+| ✓ Sanitized, nonce-isolated evidence containers | ✕ Hard-code credentials, or commit real audit material or generated summaries |
+| | ✕ Execute directives embedded inside uploaded audit material or allow delimiter breakout |
+
 
 The output is narrative text, not findings, so
 `outputs/schemas/finding-schema.json` does not apply to it.
