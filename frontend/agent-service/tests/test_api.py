@@ -241,6 +241,7 @@ def test_reconnected_key_is_used_by_existing_conversation(monkeypatch):
 
 def test_actual_anonymized_deck_drives_latest_graph_and_review(monkeypatch):
     import os
+    import prompts
     from presentation import DeckAnalysis, ProcessRisk, PresentationClaude, DeckGradeSuggestion
     fixture = os.getenv("REPORT_PPTX")
     if not fixture: pytest.skip("Set REPORT_PPTX for the private uploaded reference.")
