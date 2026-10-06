@@ -99,3 +99,7 @@ For a short hackathon, a temporary HTTPS tunnel to the Python service can replac
 New uploads and saved records use stable bytes. If an older report already lost its browser file reference, download explains the recovery: choose New report and upload the exact same .pptx again. Its SHA-256 reconnects it to the saved summary and grade; a new Claude conversation is not needed to export that saved review.
 
 If browser storage rejects a write, ESWriter keeps the edits on the current page, shows Changes not saved, and lets you download a PowerPoint copy after confirming your review. It marks a report Reviewed only after the browser write succeeds. Keep the page open and retry saving once storage is available.
+
+## Chat presentation
+
+Agent question arrays/JSON objects, numbered or bulleted question lists and plain question-per-line messages render as a consistent numbered list. Introductory text, supporting context, answer choices and closing instructions stay visible; unfamiliar shapes stay intact. The original stored messages and agent reply workflow are unchanged. Ordinary prose, emphasis and proposal tables remain readable in live chat and saved history.
