@@ -15,7 +15,12 @@ from pptx.util import Inches, Pt
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from material import DEFAULT_SOURCES  # noqa: E402
-from report_sections import count_risks, read_findings  # noqa: E402
+from report_sections import (  # noqa: E402
+    count_risks,
+    finding_owner,
+    read_finding_table,
+    read_findings,
+)
 from report_writer import (  # noqa: E402
     KEY_FIGURES_PLACEHOLDER,
     fill_finding_numbers,
@@ -198,6 +203,44 @@ def test_findings_get_a_row_each_and_recommendations_cite_the_model():
         for column in (0, 1):
             runs = table.cell(row, column).text_frame.paragraphs[0].runs
             assert len(runs) == 1 and runs[0].font.italic is True
+
+
+def test_long_findings_get_a_smaller_font_and_the_table_keeps_its_height(caplog):
+    def font_and_height(findings):
+        deck = make_deck()
+        _, table = find_findings_table(deck)
+        before = sum(row.height for row in table.rows)
+        fill_findings_table(deck, findings, "gpt-5.1")
+        sizes = {
+            table.cell(row, column).text_frame.paragraphs[0].runs[0].font.size
+            for row in range(1, len(findings) + 1)
+            for column in (0, 1)
+        }
+        assert len(sizes) == 1  # one size for the whole table
+        return sizes.pop(), [row.height for row in list(table.rows)[1:]], before
+
+    def same_height(heights, before):
+        """The height of the table is only shared out differently over its rows."""
+        return abs(sum(heights) + Pt(28.8) - before) < Pt(1)  # plus the header row
+
+    size, heights, before = font_and_height(NEG_POINTS)
+    assert size == Pt(10) and same_height(heights, before)
+
+    long = {f"Finding {n}. " + "word " * 16: "Do this. " + "word " * 8 for n in range(4)}
+    size, heights, before = font_and_height(long)
+    assert Pt(7) <= size < Pt(10) and same_height(heights, before)
+
+    # a long first row takes its height from the rows that need less
+    uneven = {"Finding. " + "word " * 40: "Fix it.", "Short finding.": "Fix it."}
+    size, heights, before = font_and_height(uneven)
+    assert heights[0] > 2 * heights[1] and same_height(heights, before)
+    assert min(heights[2:]) >= Pt(19)  # the empty rows keep room for one line
+
+    with caplog.at_level(logging.WARNING):
+        size, _, _ = font_and_height(
+            {f"Finding {n}. " + "word " * 200: "Fix it." for n in range(4)}
+        )
+    assert size == Pt(7) and "too long" in caplog.text
 
 
 def test_findings_beyond_the_rows_of_the_table_are_reported(caplog):
@@ -410,6 +453,27 @@ def test_overview_rows_that_are_not_needed_are_emptied():
     ]
 
 
+def test_overview_of_a_report_that_is_filled_in_already_is_replaced():
+    deck = make_numbers_deck(risks=RISKS[:2], overview_rows=3)
+    table = next(
+        s.table for s in list(deck.slides)[3].shapes if getattr(s, "has_table", False)
+    )
+    # as in a finished report: a mark only under one level per row, the other cells empty
+    for column in (2, 3):
+        table.cell(1, column).text_frame.paragraphs[0].runs[0]._r.getparent().remove(
+            table.cell(1, column).text_frame.paragraphs[0].runs[0]._r
+        )
+    table.cell(1, 0).text_frame.paragraphs[0].runs[0].text = "AO01. Purchase approval"
+    fill_finding_numbers(deck)
+
+    assert overview_rows(deck) == [
+        ["0101 - Access rights are not reviewed", "1", "", ""],
+        ["0102 - Reports contain errors", "", "1", ""],
+        ["", "", "", ""],
+        ["Total", "1", "1", "0"],
+    ]
+
+
 def test_deck_without_finding_slides_is_left_as_it_is():
     deck = make_deck()
     assert fill_finding_numbers(deck) == []
@@ -516,3 +580,78 @@ def test_template_header(tmp_path):
         "Process risk (gross)": "Major",
         "Key figures": KEY_FIGURES_PLACEHOLDER,
     }
+
+
+# -------------------- Finding owner --------------------
+
+FINDING_SLIDES = [
+    ("0001 – Purchases are not authorised", "Risk: High",
+     "We recommend the Procurement Manager (PUR-01) to:\nConfigure approval workflows."),
+    ("0002 – Receipts are not documented", "Risk: Medium",
+     "We recommend the Store Operations Manager (OPS-01) to:\nUse a receipt checklist."),
+    ("0003 – Reviews are not documented", "Risk: Low", "Document the annual reviews."),
+]  # fmt: skip
+
+
+def make_owner_deck():
+    """make_deck with one slide per finding: its title, its risk and its recommendation."""
+    deck = make_deck()
+    for title, risk, recommendation in FINDING_SLIDES:
+        slide = deck.slides.add_slide(deck.slide_layouts[5])
+        slide.shapes.title.text = "Findings and recommendations"
+        table = slide.shapes.add_table(
+            3, 3, Inches(1), Inches(2), Inches(8), Inches(2)
+        ).table
+        for column, text in enumerate((title, "", risk)):
+            table.cell(0, column).text = text
+        table.cell(1, 0).text = "Finding"
+        table.cell(2, 0).text = "Recommendation"
+        table.cell(2, 1).text = recommendation
+    return deck
+
+
+def test_owner_is_read_from_the_recommendation_of_each_finding():
+    table = read_finding_table(make_owner_deck())
+
+    assert table == [
+        {"title": "0001 – Purchases are not authorised", "risk": "High",
+         "owner": "Procurement Manager (PUR-01)"},
+        {"title": "0002 – Receipts are not documented", "risk": "Medium",
+         "owner": "Store Operations Manager (OPS-01)"},
+        # a recommendation that does not start with "We recommend the ... to:" names no owner
+        {"title": "0003 – Reviews are not documented", "risk": "Low", "owner": None},
+    ]  # fmt: skip
+    # a title is matched whatever its dash and case, or by its number
+    assert finding_owner("0002 - receipts are not documented", table).startswith("Store")
+    assert finding_owner("0001: Purchases without approval", table).startswith("Procurement")
+    assert finding_owner("Something else", table) is None
+    assert finding_owner("", table) is None
+
+
+def test_owner_goes_in_the_third_column_of_the_findings_table():
+    deck = make_owner_deck()
+    findings = {
+        "Receipts are not documented.": "Use a checklist.",
+        "Reviews are not documented.": "Document them.",
+        "A finding without a title.": "Fix it.",
+    }
+    titles = {
+        "Receipts are not documented.": "0002 – Receipts are not documented",
+        "Reviews are not documented.": "0003 – Reviews are not documented",
+        "A finding without a title.": "",
+    }
+    fill_findings_table(deck, findings, "gpt-5.1", titles)
+
+    owners = [row[2] for row in findings_rows(deck)]
+    # no owner named on the slide, or no title: the cell stays for the audit manager
+    assert owners == ["Store Operations Manager (OPS-01)", "", "", ""]
+
+
+def test_owner_cell_keeps_its_placeholder_when_no_owner_is_found():
+    deck = make_owner_deck()
+    fill_findings_table(
+        deck, {"Reviews are not documented.": "Document them."}, "gpt-5.1",
+        {"Reviews are not documented.": "0003 – Reviews are not documented"},
+    )  # fmt: skip
+
+    assert findings_rows(deck)[0][2] == "[FINDING OWNER]"

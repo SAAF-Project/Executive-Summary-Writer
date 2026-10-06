@@ -6,6 +6,7 @@ SDK automatically; no credentials are hard-coded.
 
 import logging
 import os
+import re
 from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
 
 import anthropic
@@ -53,6 +54,8 @@ class ChallengeReview(BaseModel):
 class Finding(BaseModel):
     finding: str
     recommendation: str
+    # the title of the finding in the audit material: links the line to its finding slide
+    title: str = ""
 
 
 class FindingsSummary(BaseModel):
@@ -67,6 +70,12 @@ class BoardSummary(BaseModel):
 
 
 # -------------------- Steps (shared by every provider) --------------------
+
+
+def summary_words(summary: str) -> int:
+    """The number of words in the summary itself: without headings and without "Potential Gaps"."""
+    body = re.split(r"^#+\s*Potential Gaps.*$", summary, flags=re.MULTILINE)[0]
+    return len(re.sub(r"^#+.*$", "", body, flags=re.MULTILINE).split())
 
 
 class BaseLLM:
@@ -180,9 +189,22 @@ class BaseLLM:
             tone_block=tone_block,
             challenge_block=challenge_block,
         )
-        return self._parsed(
-            f"{task}\n\n{prompts.SUMMARY_FIELDS}", BoardSummary, material
-        )
+        task = f"{task}\n\n{prompts.SUMMARY_FIELDS}"
+        result = self._parsed(task, BoardSummary, material)
+        words = summary_words(result.exe_summary)
+        if words > prompts.MAX_SUMMARY_WORDS:
+            # far too long for its block on the slide: ask once for a shorter one
+            logger.info(
+                "The summary has %s words (limit %s). Asking for a shorter one ...",
+                words,
+                prompts.MAX_SUMMARY_WORDS,
+            )
+            shorten = prompts.SHORTEN_SUMMARY.format(
+                words=words, limit=prompts.MAX_SUMMARY_WORDS
+            )
+            result = self._parsed(f"{task}\n\n{shorten}", BoardSummary, material)
+        result.pos_points = result.pos_points[: prompts.MAX_POS_POINTS]
+        return result
 
     def summarise_findings(self, material: List[Dict[str, Any]]) -> List[Finding]:
         """Each main finding with its recommendation, in one sentence each, for the "Main findings" table."""

@@ -73,6 +73,7 @@ class SummaryState(TypedDict, total=False):
     summary: str
     pos_points: List[str]  # for the "Positive aspects" box of the report
     neg_points: Dict[str, str]  # main finding -> recommendation
+    neg_titles: Dict[str, str]  # main finding -> title of its finding in the audit material
 
 
 def confirmed_text(state: SummaryState) -> str:
@@ -374,7 +375,10 @@ def build_graph(llm: Any, checkpointer: Any = None):
     def summarise_findings(state: SummaryState) -> dict:
         logger.info("Summarising the findings and recommendations ...")
         findings = llm.summarise_findings(state["material"])
-        return {"neg_points": {f.finding: f.recommendation for f in findings}}
+        return {
+            "neg_points": {f.finding: f.recommendation for f in findings},
+            "neg_titles": {f.finding: f.title for f in findings},
+        }
 
     graph.add_node("grade_suggest", grade_suggest)
     graph.add_node("grade_ask", grade_ask)

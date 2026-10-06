@@ -374,18 +374,36 @@ Then add a separate section:
 A bullet list of the important questions that the available information \
 leaves unanswered."""
 
+# The summary and the positive points go in blocks of a fixed size on the report
+# slide. A text that is somewhat long is set in a smaller font there; these
+# limits keep it from getting far too long for that.
+TARGET_SUMMARY_WORDS = 200
+MAX_SUMMARY_WORDS = 300
+MAX_POS_POINTS = 5
+MAX_POS_POINT_WORDS = 15
+
 # Added to WRITE_SUMMARY: the summary is returned together with the points for
 # the "Positive aspects" box of the report.
-SUMMARY_FIELDS = """\
+SUMMARY_FIELDS = f"""\
 Return two fields.
 
 "exe_summary": the complete text described above as Markdown, with both \
-headings.
+headings. The three paragraphs of the Executive Board Summary go in a block \
+of a fixed size on the report slide: write about {TARGET_SUMMARY_WORDS} words \
+and never more than {MAX_SUMMARY_WORDS}, also when a longer text was asked \
+for.
 
-"pos_points": the positive aspects for the report, as two to five short \
-sentences, one per point, for example "Payment is well controlled." Use the \
-positive aspects confirmed above. Where that item was skipped, take them \
-from the audit material."""
+"pos_points": the positive aspects for the report, as two to \
+{MAX_POS_POINTS} short sentences of at most {MAX_POS_POINT_WORDS} words, one \
+per point, for example "Payment is well controlled." Use the positive aspects \
+confirmed above. Where that item was skipped, take them from the audit \
+material."""
+
+# Sent once more when the summary came back longer than the limit.
+SHORTEN_SUMMARY = """\
+Your Executive Board Summary has {words} words. It does not fit its block on \
+the report slide. Write it again in at most {limit} words: keep the three \
+paragraphs and the message, and leave out detail."""
 
 # -------------------- Main findings table --------------------
 # One direct call, without questions to the audit manager: the findings and
@@ -403,6 +421,9 @@ Include the high-risk findings, or the main medium-risk findings where there \
 are no high-risk ones. Four at most, in the order of the report.
 
 For each one return:
+- "title": the title of the finding, copied exactly from the audit material \
+(the text after "Finding title:"), for example "0003 – Receipts not \
+documented". An empty text if the material gives the finding no title.
 - "finding": one short sentence that says what is wrong, for example \
 "Payment is not well controlled."
 - "recommendation": one short sentence that sums up the recommendation given \

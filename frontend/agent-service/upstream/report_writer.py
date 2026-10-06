@@ -6,7 +6,8 @@ In the report template, the section "Executive summary" has three places to fill
 - the block that starts with "Positive aspects" gets the positive points, as bullets;
 - the table that starts with "Main findings" gets one row per negative point: the finding under
   "Main findings" and its recommendation under "Recommendation", followed by a note that it was
-  suggested by AI.
+  suggested by AI. The third column gets the finding owner, which is read from the finding slide
+  ("We recommend the <owner> to:") and not written by the model.
 
 Two more places are filled from the finding slides themselves, without the model: every slide with
 the title "Findings and recommendations" states the title of its finding and "Risk: High", "Risk:
@@ -40,8 +41,10 @@ from pptx.util import Emu, Pt
 from report_sections import (
     RISK_LEVELS,
     count_risks,
+    finding_owner,
     locate_sections,
     read_audit_title,
+    read_finding_table,
     read_findings,
 )
 
@@ -221,12 +224,21 @@ def find_findings_table(deck: Any) -> Tuple[int, Any]:
     )
 
 
-def fill_findings_table(deck: Any, findings: Dict[str, str], model: str) -> int:
+def fill_findings_table(
+    deck: Any,
+    findings: Dict[str, str],
+    model: str,
+    titles: Optional[Dict[str, str]] = None,
+) -> int:
     """Write one row per finding: the finding in the first column, its recommendation in the second.
 
     `findings` maps a main finding to its recommendation, and `model` is named in the AI note after
-    each recommendation. The third column (finding owner) is left for the audit manager. Returns the
-    slide number.
+    each recommendation. `titles` maps a main finding to the title of its finding slide; with it, the
+    third column gets the finding owner that this slide names. Where no owner is found the cell is
+    left for the audit manager. Returns the slide number.
+
+    The table keeps its size on the slide: when the texts are too long for it, they are set in a
+    smaller font, and the height of the table is shared out over the rows by what each one needs.
     """
     number, table = find_findings_table(deck)
     rows = list(table.rows)[1:]  # below the header
@@ -249,10 +261,68 @@ def fill_findings_table(deck: Any, findings: Dict[str, str], model: str) -> int:
         _model_paragraph(cell.text_frame.paragraphs[0])
         for cell in list(rows[0].cells)[:2]
     ]
-    for row, (finding, recommendation) in zip(rows, findings.items()):
-        texts = (finding.strip(), cited(recommendation, model))
-        for cell, paragraph, text in zip(row.cells, models, texts):
+    owner_cell = list(rows[0].cells)[2:3]
+    if owner_cell and owner_cell[0].text_frame.paragraphs[0].runs:
+        models.append(_model_paragraph(owner_cell[0].text_frame.paragraphs[0]))
+    elif owner_cell:
+        models.append(models[1])
+    # the owner of a finding is looked up on its finding slide, by the title of the finding
+    table_of_findings = read_finding_table(deck)
+    texts = [
+        (
+            finding.strip(),
+            cited(recommendation, model),
+            finding_owner((titles or {}).get(finding, ""), table_of_findings) or "",
+        )[: len(models)]
+        for finding, recommendation in list(findings.items())[: len(rows)]
+    ]
+    widths = [Emu(column.width).pt - 2 * CELL_MARGIN_PT for column in table.columns]
+    # a row without a finding still takes the height of one line
+    empty = (len(rows) - len(texts)) * (FONT_SIZES_PT[0] * LINE_HEIGHT + CELL_MARGIN_PT)
+    available = sum(Emu(row.height).pt for row in rows) - empty
+
+    def heights(size: int) -> List[float]:
+        """The estimated height each row needs at a font size: its longest cell decides."""
+        return [
+            max(
+                math.ceil(len(text) / max(1, int(width / (size * CHAR_WIDTH))))
+                for text, width in zip(row, widths)
+            )
+            * size
+            * LINE_HEIGHT
+            + CELL_MARGIN_PT
+            for row in texts
+        ]
+
+    size = next(
+        (s for s in FONT_SIZES_PT if sum(heights(s)) <= available), None
+    )
+    if size is None:
+        size = FONT_SIZES_PT[-1]
+        logger.warning(
+            "[!] The findings are probably too long for the '%s' table on slide %s, even at %s pt. "
+            "Check the slide.",
+            FINDINGS_TABLE,
+            number,
+            size,
+        )
+
+    for row, row_texts in zip(rows, texts):
+        for cell, paragraph, text in zip(row.cells, models, row_texts):
+            if not text:
+                continue  # no owner found: the cell stays as it is
             _set_cell(cell, paragraph, text)
+            cell.text_frame.paragraphs[0].runs[0].font.size = Pt(size)
+    # the rows share the height of the table: each written row gets what it needs, and what is
+    # left goes to the empty rows (or, without empty rows, to all rows alike)
+    needed = heights(size)
+    spare = max(0.0, available - sum(needed))
+    others = rows[len(texts) :] or rows
+    for row, height in zip(rows, needed):
+        row.height = Pt(height)
+    for row in others:
+        start = Emu(row.height).pt if others is rows else empty / len(others)
+        row.height = Pt(start + spare / len(others))
     return number
 
 
@@ -384,15 +454,24 @@ def fill_finding_overview(
             *body, total = rows[1:]
             if not total.cells[0].text.strip().startswith(OVERVIEW_TOTAL):
                 continue
-            if not all(c.text_frame.paragraphs[0].runs for c in body[0].cells):
-                raise ValueError(
-                    f"The '{OVERVIEW_SECTION}' table has no placeholder row to replace."
-                )
-            # every cell is filled with a copy of the placeholder above it
-            models = [
-                _model_paragraph(cell.text_frame.paragraphs[0])
-                for cell in body[0].cells
+            # every cell is filled with a copy of a cell of its column that has text; in a report
+            # that is filled in already, a column may have its text in any row
+            filled = [
+                [c for row in body + [total] for c in [row.cells[column]] if c.text_frame.paragraphs[0].runs]
+                for column in range(len(table.columns))
             ]
+            marks = [cell for column in filled[1:] for cell in column]
+            if not filled[0] or not marks:
+                raise ValueError(
+                    f"The '{OVERVIEW_SECTION}' table has no text to take the format from."
+                )
+            models = [
+                _model_paragraph((column or marks)[0].text_frame.paragraphs[0])
+                for column in filled
+            ]
+            for model in models[1:]:
+                for bold in model.iter(f"{{{model.nsmap['a']}}}rPr"):
+                    bold.attrib.pop("b", None)  # a mark taken from the row "Total" is bold
             while len(body) < len(findings):
                 extra = copy.deepcopy(body[-1]._tr)
                 for ext in extra.findall(f"{{{extra.nsmap['a']}}}extLst"):
@@ -448,6 +527,7 @@ def write_summary_to_deck(
     grade: str = "",
     domain: str = "",
     process_risk: str = "",
+    neg_titles: Optional[Dict[str, str]] = None,
 ) -> int:
     """Save a copy of the deck `source` with the summary on its executive summary slide.
 
@@ -463,7 +543,7 @@ def write_summary_to_deck(
     if pos_points:
         fill_positive_block(deck, pos_points)
     if neg_points:
-        fill_findings_table(deck, neg_points, model)
+        fill_findings_table(deck, neg_points, model, neg_titles)
     if grade:
         fill_grade(deck, grade)
     fill_finding_numbers(deck)

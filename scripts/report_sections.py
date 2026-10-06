@@ -24,6 +24,9 @@ from material import (
 CONTENTS_SLIDE = 2
 # the risk of a finding is fixed by its author as "Risk: High", "Risk: Medium" or "Risk: Low"
 RISK_LEVELS = ("High", "Medium", "Low")
+# the recommendation of a finding names its owner: "We recommend the Finance Manager (FIN-01) to:"
+OWNER_SENTENCE = re.compile(r"We recommend\s+(?:the\s+)?(.+?)\s+to\s*:", re.IGNORECASE)
+RECOMMENDATION_ROW = "Recommendation"
 
 
 def _centre(shape: Any) -> Tuple[float, float]:
@@ -122,29 +125,77 @@ def read_audit_title(presentation: Any) -> str:
     return " ".join(lines[0].split()) if lines else ""
 
 
-def read_findings(presentation: Any) -> List[Tuple[str, Optional[str]]]:
-    """(finding title, risk level) for every slide with the title "Findings and recommendations".
+def read_finding_table(presentation: Any) -> List[Dict[str, Optional[str]]]:
+    """One entry per slide with the title "Findings and recommendations": title, risk and owner.
 
-    Both come from the first row of the table on the slide: the title of the finding, and next to it
-    "Risk: High", "Risk: Medium" or "Risk: Low". The level is None when it is none of these, as in the
-    empty template ("Risk: xxx").
+        {"title": "0003 - Receipts not documented", "risk": "Medium",
+         "owner": "Store Operations Manager (OPS-01)"}
+
+    Title and risk come from the first row of the table on the slide: the title of the finding, and
+    next to it "Risk: High", "Risk: Medium" or "Risk: Low". The owner comes from the row
+    "Recommendation", which starts with "We recommend the <owner> to:". Risk and owner are None when
+    they are not stated in this way, as in the empty template ("Risk: xxx").
     """
-    findings: List[Tuple[str, Optional[str]]] = []
+    findings: List[Dict[str, Optional[str]]] = []
     for slide in presentation.slides:
         if _slide_title(slide) != FINDING_SLIDE_TITLE:
             continue
         for shape in slide.shapes:
             if not getattr(shape, "has_table", False):
                 continue
-            title, *details = [
-                " ".join(cell.text.split())
-                for cell in list(shape.table.rows)[0].cells
-                if not cell.is_spanned
+            rows = [
+                [cell.text.strip() for cell in row.cells if not cell.is_spanned]
+                for row in shape.table.rows
             ]
+            title, *details = [" ".join(text.split()) for text in rows[0]]
             stated = re.search(r"Risk:\s*(\w+)", " ".join(details), re.IGNORECASE)
             level = stated.group(1).capitalize() if stated else None
-            findings.append((title, level if level in RISK_LEVELS else None))
+            recommendation = next(
+                (
+                    " ".join(" ".join(row[1:]).split())
+                    for row in rows[1:]
+                    if row and row[0].startswith(RECOMMENDATION_ROW)
+                ),
+                "",
+            )
+            named = OWNER_SENTENCE.search(recommendation)
+            findings.append(
+                {
+                    "title": title,
+                    "risk": level if level in RISK_LEVELS else None,
+                    "owner": named.group(1).strip() if named else None,
+                }
+            )
     return findings
+
+
+def read_findings(presentation: Any) -> List[Tuple[str, Optional[str]]]:
+    """(finding title, risk level) for every finding of the deck. See read_finding_table."""
+    return [(f["title"], f["risk"]) for f in read_finding_table(presentation)]
+
+
+def _title_key(title: str) -> str:
+    return re.sub(r"[\W_]+", " ", title).strip().lower()
+
+
+def finding_owner(title: str, table: List[Dict[str, Optional[str]]]) -> Optional[str]:
+    """The owner of the finding with this title, from the information table of the findings.
+
+    The title is matched without regard to case, dashes and punctuation; failing that, by the number
+    a title starts with ("0003").
+    """
+    key = _title_key(title)
+    if not key:
+        return None
+    for finding in table:
+        if _title_key(finding["title"]) == key:
+            return finding["owner"]
+    number = key.split()[0]
+    if number.isdigit():
+        for finding in table:
+            if _title_key(finding["title"]).split()[:1] == [number]:
+                return finding["owner"]
+    return None
 
 
 def count_risks(findings: List[Tuple[str, Optional[str]]]) -> List[int]:
@@ -161,5 +212,8 @@ if __name__ == "__main__":
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SOURCES["pptx"]
     for section, numbers in locate_sections(Presentation(str(path))).items():
         print(f"{section}: slides {', '.join(map(str, numbers))}")
-    for title, level in read_findings(Presentation(str(path))):
-        print(f"Finding: {title} (risk: {level or 'not recognised'})")
+    for finding in read_finding_table(Presentation(str(path))):
+        print(
+            f"Finding: {finding['title']} (risk: {finding['risk'] or 'not recognised'}, "
+            f"owner: {finding['owner'] or 'not recognised'})"
+        )

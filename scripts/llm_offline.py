@@ -323,7 +323,16 @@ class OfflineLLM(BaseLLM):
         return BoardSummary(exe_summary=summary, pos_points=ASSUMED_POS_POINTS)
 
     def summarise_findings(self, material: List[Dict[str, Any]]) -> List[Finding]:
+        # the assumed findings take the first finding titles of the material, so that what is
+        # looked up by title (the finding owner) can be tried offline
+        titles = re.findall(
+            r"^Finding title: (.+)$",
+            "\n".join(block.get("text", "") for block in material),
+            flags=re.MULTILINE,
+        )
         return [
-            Finding(finding=finding, recommendation=recommendation)
-            for finding, recommendation in ASSUMED_NEG_POINTS.items()
+            Finding(finding=finding, recommendation=recommendation, title=title)
+            for (finding, recommendation), title in zip(
+                ASSUMED_NEG_POINTS.items(), titles + [""] * len(ASSUMED_NEG_POINTS)
+            )
         ]

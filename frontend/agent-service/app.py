@@ -36,7 +36,7 @@ from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
-from presentation import PresentationClaude, InsufficientGradeEvidence, audit_title, extract_presentation, draft_fields  # noqa: E402
+from presentation import PresentationClaude, InsufficientGradeEvidence, deck_facts, extract_presentation, draft_fields  # noqa: E402
 from typing import Literal  # noqa: E402
 
 ClaudeLLM = PresentationClaude
@@ -362,7 +362,7 @@ def create_app(provider_factory: Callable = LazyClaude) -> FastAPI:
                     raise ValueError("The executive-summary areas could not be located. Check the presentation layout.")
                 if slide_count != len(template["slides"]):
                     raise ValueError("The presentation and selected report do not match.")
-                plan["auditTitle"] = audit_title(data)
+                plan.update(deck_facts(data))
             except (ValueError, KeyError, TypeError, zipfile.BadZipFile, ET.ParseError) as exc:
                 raise HTTPException(400, "The presentation or its executive-summary mapping could not be read. Upload a standard .pptx with a labeled executive-summary slide.") from None
             material = evidence + material

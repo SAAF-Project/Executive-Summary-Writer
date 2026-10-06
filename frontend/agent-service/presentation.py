@@ -72,18 +72,20 @@ Use explicitly supplied audit-manager clarifications as evidence, identifying th
         return GradeSuggestion(grade=result.grade, reason=result.reason)
 
 
-def audit_title(data: bytes) -> str:
-    """The audit title on the first slide of the deck, for the report header. Empty if it cannot be read."""
+def deck_facts(data: bytes) -> dict:
+    """What is read from the deck without the model: the audit title on the first slide, and the title, risk and owner of each finding. Empty if the deck cannot be read."""
     from pptx import Presentation
-    from report_sections import read_audit_title
+    from report_sections import read_audit_title, read_finding_table
     try:
-        return read_audit_title(Presentation(io.BytesIO(data)))
+        deck = Presentation(io.BytesIO(data))
+        return {"auditTitle": read_audit_title(deck), "findings": read_finding_table(deck)}
     except Exception:
-        return ""
+        return {"auditTitle": "", "findings": []}
 
 
 def draft_fields(result, plan, model):
     from report_writer import KEY_FIGURES_PLACEHOLDER, slide_text, cited
+    from report_sections import finding_owner
     # header of the executive summary slide: title from the deck, the audit manager's two choices, and a placeholder
     header = {"Audit title": plan.get("auditTitle", ""), "Domain": result.get("domain", ""), "Process risk (gross)": result.get("process_risk", ""), "Key figures": KEY_FIGURES_PLACEHOLDER}
     paragraphs = "\n\n".join(slide_text(result["summary"]))
@@ -102,6 +104,11 @@ def draft_fields(result, plan, model):
         elif label.startswith("Recommendation "):
             row = int(label.rsplit(" ", 1)[1]) - 1
             content = cited(findings[row][1], model) if row < len(findings) else ""
+        elif label.startswith("Finding owner "):
+            # read from the finding slide ("We recommend the <owner> to:"), not written by the model
+            row = int(label.rsplit(" ", 1)[1]) - 1
+            owner = finding_owner(result.get("neg_titles", {}).get(findings[row][0], ""), plan.get("findings", [])) if row < len(findings) else None
+            content = owner or target.get("source", {}).get("sourceText", "")
         elif header.get(label): content = header[label]
         else: content = target.get("source", {}).get("sourceText", "")
         fields[target["id"]] = content

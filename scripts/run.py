@@ -2,11 +2,16 @@
 the Executive Board summary. The output is a JSON file with the summary ("exe_summary"), the positive
 points ("pos_points", a list), the main findings with a recommendation each ("neg_points", finding
 -> recommendation), the overall grade ("grade", A-D) and the two header values the audit manager chose
-("domain" and "process_risk").
+("domain" and "process_risk"). For a report deck it also holds the information table of its findings
+("findings": title, risk and owner of each one, read from the finding slides without the model).
 
     python scripts/run.py                                    # the sample .pptx report
     python scripts/run.py report.docx
     python scripts/run.py upload.bin --input-source-type xlsx
+    python scripts/run.py report.pptx --replay output/executive-summary_..._trace.json
+
+Next to the output, a record of the run is saved (see run_record.py): every question and reply, and every
+model call with its input and output. `--replay` plays such a record back without a model.
 """
 
 import argparse
@@ -23,6 +28,7 @@ from langgraph.types import Command
 
 from graph import build_graph
 from llm import BaseLLM, ClaudeLLM
+from run_record import TracingLLM, save_trace
 from material import (
     DEFAULT_SOURCE_TYPE,
     SOURCE_TYPES,
@@ -71,7 +77,11 @@ def _choose_api(preselected: Optional[str]) -> Optional[str]:
         print("Please enter 1 for OpenAI, 2 for Claude or 3 for the offline test.")
 
 
-def _build_llm(api: str) -> BaseLLM:
+def _build_llm(api: str, replay: Optional[Path] = None) -> BaseLLM:
+    if replay:
+        from run_record import ReplayLLM
+
+        return ReplayLLM(replay)
     if api == "openai":
         from llm_openai import (
             OpenAILLM,
@@ -105,9 +115,15 @@ def main() -> int:
         help="API to use; asked at the start if omitted",
     )
     parser.add_argument(
+        "--replay",
+        type=Path,
+        metavar="TRACE",
+        help="Play back the model outputs of a saved record (..._trace.json); no API is used",
+    )
+    parser.add_argument(
         "--request",
         default="",
-        help='Your request, e.g. "3 paragraphs / 600 words, factual tone"',
+        help='Your request, e.g. "3 paragraphs / 250 words, factual tone"',
     )
     parser.add_argument(
         "--output-dir",
@@ -142,12 +158,12 @@ def main() -> int:
         print(f"[!] {exc}")
         return 2
 
-    api = _choose_api(args.api)
+    api = "offline" if args.replay else _choose_api(args.api)
     if api is None:
         print("Stopped. No summary was written.")
         return 0
     try:
-        llm = _build_llm(api)
+        llm = TracingLLM(_build_llm(api, args.replay))
     except RuntimeError as exc:
         print(f"[!] {exc}")
         return 1
@@ -156,16 +172,33 @@ def main() -> int:
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
     print(f"\nExecutive Summary Writer ({llm.name}). Type 'quit' to stop.")
 
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    trace_file = args.output_dir / f"executive-summary_{stamp}_trace.json"
+    # the record of this run: what was asked and replied, and every model call
+    trace = {
+        "started": datetime.now().isoformat(timespec="seconds"),
+        "api": api,
+        "model": llm.name,
+        "files": [p.name for p in args.files],
+        "request": args.request,
+        "status": "incomplete",
+        "conversation": [],
+        "calls": llm.calls,
+    }
+
     try:
         result = app.invoke(
             {"material": material, "request": args.request}, config
         )
         while "__interrupt__" in result:
-            reply = _ask(result["__interrupt__"][0].value["message"])
+            question = result["__interrupt__"][0].value
+            reply = _ask(question["message"])
+            trace["conversation"].append({**question, "reply": reply})
             if reply.lower() in QUIT_WORDS:
                 print("Stopped. No summary was written.")
                 return 0
             result = app.invoke(Command(resume=reply), config)
+        trace["status"] = "completed"
     except KeyboardInterrupt:
         print("\n[!] Interrupted by user. No summary was written.")
         return 130
@@ -195,6 +228,11 @@ def main() -> int:
             raise
         print(f"[!] OpenAI API error: {exc}")
         return 1
+    finally:
+        # a run that stopped early or failed keeps its record too
+        if trace["status"] != "completed" and (trace["conversation"] or llm.calls):
+            save_trace(trace_file, trace)
+            print(f"[+] Record of this run saved to {trace_file}")
 
     print(
         f"\nConfirmed for the Executive Board summary:\n{result['confirmation']}\n"
@@ -207,6 +245,20 @@ def main() -> int:
         "domain": result["domain"],
         "process_risk": result["process_risk"],
     }
+    # a report deck: the title, risk and owner of each finding, as read from its finding slides
+    deck = next(
+        (
+            p
+            for p in args.files
+            if (source_type or p.suffix.lower().lstrip(".")) == "pptx"
+        ),
+        None,
+    )
+    if deck is not None:
+        from pptx import Presentation
+        from report_sections import read_finding_table
+
+        output["findings"] = read_finding_table(Presentation(str(deck)))
     print(output["exe_summary"])
     print(f"\nOverall grade: {output['grade']}")
     print(f"Domain: {output['domain']}")
@@ -219,24 +271,18 @@ def main() -> int:
         print(f"- {finding}\n  -> {recommendation}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    out_file = (
-        args.output_dir
-        / f"executive-summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    )
+    out_file = args.output_dir / f"executive-summary_{stamp}.json"
     out_file.write_text(
         json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print(f"\n[+] Saved to {out_file}")
+    save_trace(
+        trace_file,
+        {**trace, "confirmation": result["confirmation"], "output": output},
+    )
+    print(f"[+] Record of this run saved to {trace_file}")
 
     # a report deck also gets the summary and the points on its own executive summary slide
-    deck = next(
-        (
-            p
-            for p in args.files
-            if (source_type or p.suffix.lower().lstrip(".")) == "pptx"
-        ),
-        None,
-    )
     if deck is not None:
         from report_writer import write_summary_to_deck
 
@@ -252,6 +298,7 @@ def main() -> int:
                 output["grade"],
                 output["domain"],
                 output["process_risk"],
+                result.get("neg_titles"),
             )
         except ValueError as exc:
             print(f"[!] The summary was not put on the slide: {exc}")

@@ -51,6 +51,7 @@ scripts/
   llm_openai.py            OpenAI / Azure OpenAI calls (Chat Completions), used when you choose OpenAI
   openai_config.py         Client and deployment settings for the OpenAI option
   llm_offline.py           Offline test: keyword rules and assumed AI output, no API calls
+  run_record.py            Record of a run as JSON (questions, replies, model calls) and its replay
   prompts.py               System prompt and the task text for each step (generic wording)
   prompts_local.py         The organisation's own wording; replaces the generic texts when present
   material.py              Loads the audit material according to its input source type
@@ -215,8 +216,16 @@ filled:
 | `grade` | Square in the "Findings" box at the top right, with the colour of the grade (`GRADE_COLOURS` in `scripts/report_writer.py`) |
 
 The note after a recommendation is added by the code (`AI_NOTE` in
-`scripts/report_writer.py`), not by the model, so it is always there. The column
-"Finding owner" is left for the audit manager. The table of the template has
+`scripts/report_writer.py`), not by the model, so it is always there.
+
+The column "Finding owner" is filled by the code too. On each finding slide the
+row "Recommendation" starts with a sentence such as "We recommend the Store
+Operations Manager (OPS-01) to:", and the owner is the name in it. Title, risk
+and owner of every finding form the information table of the findings
+(`read_finding_table` in `scripts/report_sections.py`), which is also saved in
+the JSON output as `findings`. The model returns the title of each finding it
+summarises, and the owner is looked up by that title. Where a slide names no
+owner in this way, the cell is left for the audit manager. The table of the template has
 four rows; findings beyond that are not written and are named in a warning.
 
 ### Header of the executive summary slide
@@ -253,9 +262,16 @@ template) is listed without a `1`, is not counted, and is named in a warning.
 - Only the text under "Executive Board Summary" goes on the slide. The
   "Potential Gaps" section is for the audit manager and stays in the JSON
   file.
-- The block has a fixed size (roughly 200 words at 10 pt). Longer text is set
-  smaller, down to 7 pt; beyond that a warning is printed. Ask for a short
-  summary with `--request` when the result is meant for the slide.
+- **Text that is too long is set smaller.** The blocks and the "Main findings"
+  table keep their size on the slide. A summary, positive points or findings
+  that do not fit at 10 pt are set at 9, 8 or 7 pt; beyond that a warning is
+  printed. In the "Main findings" table all rows get the same size, and the
+  height of the table is shared out over the rows by what each one needs.
+- **Text that is far too long is prevented.** The model is asked for a summary
+  of about 200 words and never more than 300, and for at most five positive
+  points of at most 15 words. A summary above 300 words is asked for once more
+  in a shorter form, and positive points beyond the fifth are dropped. The
+  limits are constants in `scripts/prompts.py` (`MAX_SUMMARY_WORDS`, ...).
 
 ## Requirements
 
@@ -305,7 +321,7 @@ Run from the repository root:
 ```bash
 python scripts/run.py
 python scripts/run.py samples/synthetic-audit-report.md
-python scripts/run.py report.docx management-responses.pdf --request "3 paragraphs / 600 words, factual tone"
+python scripts/run.py report.docx management-responses.pdf --request "3 paragraphs / 250 words, factual tone"
 ```
 
 ### Input source type
@@ -382,6 +398,42 @@ conversation is active.
 - **Offline test**: no API, no key and no network. See below.
 
 All options run the same graph and the same steps.
+
+## Record of a run
+
+Every run saves two JSON files in the output folder, with the same date and time:
+
+| File | Content |
+|---|---|
+| `executive-summary_<date>_<time>.json` | The output: summary, positive points, findings, grade, domain, process risk |
+| `executive-summary_<date>_<time>_trace.json` | The record of the run: how that output came about |
+
+The record holds, in order:
+
+- `conversation`: every question the agent asked (step, text, fixed answers) and
+  the audit manager's reply;
+- `calls`: every model call with its name, its input and its output, for example
+  the proposed root causes, the suggested grade with its reason, the challenge
+  questions and the summary;
+- the provider and model, the file names, the request, the confirmation bullets
+  and the final output.
+
+The audit material itself is not copied into the record; it is named by its
+files. A run that stops early or fails keeps its record too, with the status
+`incomplete`. The output folder is not committed, as a record contains audit
+content.
+
+A record can be played back without a model:
+
+```bash
+python scripts/run.py report.pptx --replay output/executive-summary_<date>_<time>_trace.json
+```
+
+You answer the questions again, and the model outputs come from the record in
+the order they were given. This reproduces a run made with Claude or OpenAI
+offline, for example to trace a result or to test the deck writer on real model
+output. If you answer differently and a kind of call has no recorded output
+left, the assumed offline output is used and a line in the terminal says so.
 
 ## Offline testing
 

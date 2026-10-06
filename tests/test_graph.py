@@ -95,6 +95,7 @@ class FakeLLM:
             Finding(
                 finding="Model is not up-to-date.",
                 recommendation="There should be a product owner.",
+                title="0002 – Model",
             )
         ]
 
@@ -299,6 +300,8 @@ def test_findings_are_summarised_without_a_question():
 
     assert len(messages) == 9  # steps 1-6, the report header and the offer of a challenge review
     assert llm.calls.count("summarise_findings") == 1
+    # the title links the line to its finding slide, where the owner is read
+    assert result["neg_titles"] == {"Model is not up-to-date.": "0002 – Model"}
     assert result["neg_points"] == {
         "Model is not up-to-date.": "There should be a product owner."
     }
