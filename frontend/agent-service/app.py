@@ -140,9 +140,10 @@ class AgentService:
                 with session.lock:
                     session.analysis = analysis.model_dump()
                     session.phase = "interview"
-                invocation = {**session.initial_input, "proposals": {prompts.STEPS[0].key: analysis.firstQuestion}}
+                # the interview keeps its own fixed questions: step 1 is asked as the agent words it, not rewritten per deck
+                invocation = session.initial_input
             elif session.plan and session.result is None and invocation is None and not session.graph.get_state(session.config).values:
-                invocation = {**session.initial_input, "proposals": {prompts.STEPS[0].key: session.analysis["firstQuestion"]}}
+                invocation = session.initial_input
             result = session.result if session.phase == "format" and session.result else session.graph.invoke(invocation, session.config)
             if session.plan and not result.get("__interrupt__"):
                 session.result = result

@@ -270,7 +270,9 @@ def test_actual_anonymized_deck_drives_latest_graph_and_review(monkeypatch):
         assert response.status_code==202,response.text
         session=settled(client,response.json()["sessionId"])
         assert session["analysis"]["processRisk"]["grade"] is None
-        assert "tailored test-only" in session["message"]
+        # a model-written question does not replace the agent's own first question
+        assert "tailored test-only" not in session["message"]
+        assert prompts.ROOT_CAUSE.question in session["message"]
         for i, text in enumerate(["Cause", "Relationships", "Storyline", "Positives", "C", "Balanced", "Finance", "Major", "Yes", "The process owner"]):
             session=reply(client, session, text, f"actual-deck-reply-{i}")
         artifact=session["artifacts"][0]
