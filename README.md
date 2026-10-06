@@ -20,6 +20,25 @@ This is the working-code home for the Hackathon 4 plan
 What the agent must be judged against is in
 [`AUDIT-CRITERIA.md`](AUDIT-CRITERIA.md).
 
+## ESWriter web frontend
+
+The `frontend/` folder contains the Next.js ESWriter app: upload a completed audit
+PowerPoint, discuss its evidence with the Claude agent, edit the executive summary
+and A–D grade in the presentation preview, and download the reviewed PowerPoint.
+Previous audits are stored in the same browser and can be reopened for review.
+
+```sh
+cd frontend
+npm ci
+npm run demo
+```
+
+Open http://127.0.0.1:3000. The local launcher uses this repository's agent scripts;
+connect Claude in the app or configure the service environment. For Vercel, use
+`frontend` as the project's Root Directory. A reachable Python service is required
+for hosted agent conversations; the frontend alone cannot reach a laptop's localhost.
+See [frontend/README.md](frontend/README.md) for setup, deployment, limits and tests.
+
 ## Repository layout
 
 ```

@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.impeccable/
+test-results/
+playwright-report/
+tests/
+*.tsbuildinfo
+*.zip
+.DS_Store
+agent-service/
