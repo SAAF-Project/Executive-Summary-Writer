@@ -41,7 +41,7 @@ from typing import Literal  # noqa: E402
 
 ClaudeLLM = PresentationClaude
 
-REVISION = "cd950925efacd756c6d9da5a10ce7b502b3b0ac3"
+REVISION = "80b9bbd7939fc4fbc7fad9f1c8e8c55429c43450"
 MAX_BODY = 27 * 1024 * 1024
 MAX_FILE = 4 * 1024 * 1024
 MAX_SESSIONS = 30

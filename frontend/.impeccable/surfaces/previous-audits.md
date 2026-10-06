@@ -9,3 +9,5 @@ Task: find an uploaded audit by presentation name, see its actual status/date/se
 Saved reviews remain editable and exportable without an agent connection. This is browser/device-local history, explicitly stated on the page. Unfinished live conversations require their original running agent. Do not imply shared cloud storage or fabricate agent output.
 
 At narrow widths, use flat rows with filename, status, grade, date and one Open audit action. Keep existing shell, keyboard controls and focus treatment. Verify desktop 1440, mobile 390 and actual user width 362.
+
+Added Delete action: native confirmation, cancellation, disabled state while deleting, success announcement, failed storage retains the row, clear active browser session reference after successful deletion. Original file is kept. Verified cancel, delete, and refresh persistence in the focused fitting flow.

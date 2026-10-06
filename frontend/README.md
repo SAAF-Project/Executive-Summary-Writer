@@ -103,3 +103,11 @@ If browser storage rejects a write, ESWriter keeps the edits on the current page
 ## Chat presentation
 
 Agent question arrays/JSON objects, numbered or bulleted question lists and plain question-per-line messages render as a consistent numbered list. Introductory text, supporting context, answer choices and closing instructions stay visible; unfamiliar shapes stay intact. The original stored messages and agent reply workflow are unchanged. Ordinary prose, emphasis and proposal tables remain readable in live chat and saved history.
+
+## Text fitting and audit deletion
+
+The review screen measures all executive-summary fields against the original PowerPoint boxes, including headings, line breaks, cell margins, and the selected grade definition. It uses source font metrics with a safety allowance, reduces body fonts only as far as 8 pt, and shares the findings table height between rows without enlarging its outside rectangle. The positive-aspects text also reserves the width occupied by the grade box in the supplied deck. Preview and PowerPoint export use the same fitted sizes and explicit line breaks. Text that still cannot fit must be shortened before approval or download; the full user text remains saved. Source fonts need to be available in the viewing application for matching metrics.
+
+Previous audits has a Delete action with confirmation. It removes that report’s source bytes, summary edits and saved conversation from this browser after the storage operation succeeds. The original uploaded file is unaffected.
+
+For the focused private-deck check, set `REPORT_PPTX` to a local reference `.pptx` and run `npx playwright test tests/report-fit.spec.ts`; the fixture is never bundled. The check uses explicit test responses and makes no Claude calls.

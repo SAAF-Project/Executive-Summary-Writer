@@ -16,6 +16,29 @@ HEADERS = {"X-Template-Studio": "local-demo"}
 TEMPLATE = {"name": "Test presentation layout", "slides": [{"title": "Executive Summary"}]}
 
 
+def test_latest_draft_fields_maps_header_and_source_owners():
+    from presentation import draft_fields
+
+    labels = ["Audit title", "Domain", "Process risk (gross)", "Finding owner 1", "Finding owner 2"]
+    plan = {
+        "auditTitle": "Synthetic audit",
+        "findings": [{"title": "0001 - Unclear ownership", "owner": "Finance Manager (FIN-01)", "risk": "High"}],
+        "summaryFields": [{"id": label, "label": label, "source": {"sourceText": "Unconfirmed owner"}} for label in labels],
+    }
+    result = {
+        "summary": "## Executive Board Summary\nSynthetic summary.",
+        "domain": "Finance", "process_risk": "Major",
+        "neg_points": {"Ownership is unclear.": "Assign an owner.", "Missing control.": "Document the control."},
+        "neg_titles": {"Ownership is unclear.": "0001 - Unclear ownership", "Missing control.": "Unknown finding"},
+    }
+    fields, _ = draft_fields(result, plan, "test-model")
+    assert fields["Audit title"] == "Synthetic audit"
+    assert fields["Domain"] == "Finance"
+    assert fields["Process risk (gross)"] == "Major"
+    assert fields["Finding owner 1"] == "Finance Manager (FIN-01)"
+    assert fields["Finding owner 2"] == "Unconfirmed owner"
+
+
 class ScriptedModel:
     def interpret(self, question, reply, proposal):
         return Interpretation(decision="skipped" if reply == "skip" else "confirmed", text=reply)

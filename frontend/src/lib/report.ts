@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import type { PresentationMetadata, SourceField, SlideMetadata } from "./types";
+import { fitReport, loadReportLayout, REPORT_LINE_HEIGHT, type FieldFit } from "./report-fit";
 
 export const PROCESS_GRADES = [
   { grade: "A", color: "#00b050", label: "Well mitigated", definition: "Risks identified in the audited process are well mitigated. Limited actions might be required." },
@@ -69,11 +70,58 @@ export function presentationEdits(plan: ReportPlan, fields: Record<string, strin
 const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
 const P = "http://schemas.openxmlformats.org/presentationml/2006/main";
 function direct(node: Element, name: string) { return Array.from(node.children).filter(child => child.localName === name); }
-function replaceBody(body: Element, value: string, prefix?: string) {
+function replaceBody(body: Element, value: string, prefix?: string, fit?: FieldFit) {
   const doc = body.ownerDocument;
   const original = direct(body, "p");
   const keepHeader = !!prefix && original.length > 0 && (original[0].textContent ?? "").trim().toLowerCase() === prefix.toLowerCase();
   const style = original[keepHeader ? 1 : 0] ?? original[0];
+  if (fit) {
+    for (const p of original) body.removeChild(p);
+    let properties = direct(body, "bodyPr")[0];
+    if (!properties) { properties = doc.createElementNS(A, "a:bodyPr"); body.insertBefore(properties, body.firstChild); }
+    properties.setAttribute("wrap", "square"); properties.setAttribute("anchor", "t");
+    for (const old of Array.from(properties.children).filter(child => /^(normAutofit|spAutoFit|noAutofit)$/.test(child.localName))) properties.removeChild(old);
+    properties.appendChild(doc.createElementNS(A, "a:noAutofit"));
+    for (const [index, paragraph] of fit.paragraphs.entries()) {
+      const sourceStyle = index === 0 && keepHeader ? original[0] : style;
+      const p = doc.createElementNS(A, "a:p");
+      const pPr = (sourceStyle && direct(sourceStyle, "pPr")[0]?.cloneNode(true) as Element | undefined) ?? doc.createElementNS(A, "a:pPr");
+      pPr.setAttribute("marL", String(Math.round(paragraph.left * 12700))); pPr.setAttribute("marR", "0");
+      pPr.setAttribute("indent", String(Math.round(-paragraph.left * 12700)));
+      for (const old of Array.from(pPr.children).filter(child => /^(lnSpc|spcBef|spcAft|buChar|buAutoNum|buNone)$/.test(child.localName))) pPr.removeChild(old);
+      // Percentage spacing scales PowerPoint's font line box, not its font size.
+      // Absolute points match the measured browser baseline distance exactly.
+      const spacing = doc.createElementNS(A, "a:lnSpc"), linePoints = doc.createElementNS(A, "a:spcPts");
+      linePoints.setAttribute("val", String(Math.round(paragraph.size * REPORT_LINE_HEIGHT * 100))); spacing.appendChild(linePoints);
+      pPr.insertBefore(spacing, pPr.firstChild);
+      let cursor = spacing;
+      for (const name of ["spcBef", "spcAft"]) {
+        const space = doc.createElementNS(A, `a:${name}`), points = doc.createElementNS(A, "a:spcPts");
+        points.setAttribute("val", "0"); space.appendChild(points); pPr.insertBefore(space, cursor.nextSibling); cursor = space;
+      }
+      const bullet = doc.createElementNS(A, paragraph.left ? "a:buChar" : "a:buNone");
+      if (paragraph.left) bullet.setAttribute("char", "•");
+      pPr.insertBefore(bullet, direct(pPr, "tabLst")[0] ?? direct(pPr, "defRPr")[0] ?? direct(pPr, "extLst")[0] ?? null);
+      p.appendChild(pPr);
+      function runStyle() {
+        const originalStyle = sourceStyle?.getElementsByTagNameNS(A, "rPr")[0];
+        const rPr = originalStyle?.cloneNode(true) as Element | undefined ?? doc.createElementNS(A, "a:rPr");
+        rPr.setAttribute("sz", String(Math.round(paragraph.size * 100))); rPr.setAttribute("b", paragraph.bold ? "1" : "0");
+        let latin = direct(rPr, "latin")[0];
+        if (!latin) { latin = doc.createElementNS(A, "a:latin"); rPr.insertBefore(latin, direct(rPr, "ea")[0] ?? direct(rPr, "cs")[0] ?? direct(rPr, "sym")[0] ?? direct(rPr, "hlinkClick")[0] ?? direct(rPr, "extLst")[0] ?? null); }
+        latin.setAttribute("typeface", fit!.fontFamily);
+        return rPr;
+      }
+      paragraph.lines.forEach((line, lineIndex) => {
+        if (lineIndex) { const br = doc.createElementNS(A, "a:br"); br.appendChild(runStyle()); p.appendChild(br); }
+        const r = doc.createElementNS(A, "a:r"), t = doc.createElementNS(A, "a:t");
+        t.textContent = line; r.appendChild(runStyle()); r.appendChild(t); p.appendChild(r);
+      });
+      const end = doc.createElementNS(A, "a:endParaRPr"); end.setAttribute("sz", String(Math.round(paragraph.size * 100))); p.appendChild(end);
+      body.appendChild(p);
+    }
+    return;
+  }
   const content = keepHeader && prefix ? value.replace(new RegExp(`^${prefix}\\s*`, "i"), "") : value;
   for (const p of original.slice(keepHeader ? 1 : 0)) body.removeChild(p);
   for (const line of content.split("\n")) {
@@ -94,6 +142,9 @@ export async function exportReport(source: Blob, metadata: PresentationMetadata,
   if (!bytes.byteLength) throw new Error("The original presentation is missing. Upload the same .pptx again to restore it; your saved summary edits will be kept.");
   const zip = await JSZip.loadAsync(bytes);
   const edits = presentationEdits(plan, fields, grade);
+  const fit = fitReport(await loadReportLayout(source, metadata), plan.summaryFields, edits);
+  const overflowing = plan.summaryFields.filter(field => !fit.fields[field.id]?.fits);
+  if (overflowing.length) throw new Error(`Shorten ${overflowing.map(field => field.label).join(", ")} before downloading. The text does not fit at the minimum readable size.`);
   const allowed = [...plan.summaryFields, ...(plan.gradeField ? [plan.gradeField] : []), ...(plan.gradeLabel ? [plan.gradeLabel] : [])];
   for (const slide of metadata.slides) {
     const targets = allowed.filter(field => field.slideId === slide.id && edits[field.id] !== undefined);
@@ -112,7 +163,26 @@ export async function exportReport(source: Blob, metadata: PresentationMetadata,
         body = cell && direct(cell, "txBody")[0];
       } else body = direct(node, "txBody")[0];
       if (!body) throw new Error(`The ${target.label} content area could not be found.`);
-      replaceBody(body, edits[target.id], target.prefix);
+      const measured = fit.fields[target.id];
+      replaceBody(body, edits[target.id], target.prefix, measured);
+      if (measured) {
+        if (cell) {
+          let properties = direct(cell, "tcPr")[0];
+          if (!properties) { properties = doc.createElementNS(A, "a:tcPr"); cell.appendChild(properties); }
+          for (const [name, points] of [["marL", measured.left], ["marR", measured.right], ["marT", measured.top], ["marB", measured.bottom]] as const) properties.setAttribute(name, String(Math.round(points * 12700)));
+          properties.setAttribute("anchor", "t");
+        } else {
+          const properties = direct(body, "bodyPr")[0];
+          for (const [name, points] of [["lIns", measured.left], ["rIns", measured.right], ["tIns", measured.top], ["bIns", measured.bottom]] as const) properties.setAttribute(name, String(Math.round(points * 12700)));
+        }
+        if (measured.tableId && fit.rowHeights[measured.tableId]) {
+          const rows = Array.from(node.getElementsByTagNameNS(A, "tr"));
+          const heights = fit.rowHeights[measured.tableId];
+          const total = Math.round(heights.reduce((a, b) => a + b, 0) * 12700);
+          let written = 0;
+          rows.forEach((row, index) => { const height = index === rows.length - 1 ? total - written : Math.round(heights[index] * 12700); row.setAttribute("h", String(height)); written += height; });
+        }
+      }
       if (target.id === plan.gradeField?.id && grade) {
         const properties = cell ? direct(cell, "tcPr")[0] ?? doc.createElementNS(A, "a:tcPr") : direct(node, "spPr")[0];
         if (!properties) throw new Error("The process grade styling could not be preserved.");
