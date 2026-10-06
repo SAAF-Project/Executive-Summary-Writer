@@ -102,7 +102,9 @@ def build_graph(llm: Any, checkpointer: Any = None):
             done = state.get("done", []) + [step.key]
 
             if result.decision == "confirmed" and result.text.strip():
-                text = result.text.strip()
+                from sanitizer import defang_directives
+                clean_text, _ = defang_directives(result.text.strip())
+                text = clean_text
                 if step.refine and not proposal:
                     logger.info("Refining the storyline ...")
                     text = llm.refine_storyline(
@@ -114,6 +116,7 @@ def build_graph(llm: Any, checkpointer: Any = None):
                     "decision": "confirmed",
                     "ack": f"{step.label} noted: {text}",
                 }
+
 
             if result.decision == "skipped":
                 return {
@@ -225,7 +228,12 @@ def build_graph(llm: Any, checkpointer: Any = None):
             state.get("challenge_questions", []),
             state.get("challenge_answers", ""),
         )
+        import re
+        if "<audit_material" in summary or "</audit_material" in summary:
+            logger.warning("Sanitizing leaked audit_material tag in model summary output.")
+            summary = re.sub(r"</?audit_material[^>]*>", "", summary)
         return {"summary": summary}
+
 
     graph.add_node("tone_ask", tone_ask)
     graph.add_node("tone_interpret", tone_interpret)
