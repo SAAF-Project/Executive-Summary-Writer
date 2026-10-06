@@ -49,7 +49,7 @@ def test_every_interaction_is_kept():
             "Good controls",
             "",
             "",
-            "proceed",
+            "Finance", "Major", "yes", "proceed",
         ]
     )
 
@@ -60,7 +60,10 @@ def test_every_interaction_is_kept():
     assert "Step 5 of 6: Overall grade" in messages[4]
     assert ASSUMED_GRADE.reason in messages[4]
     assert prompts.TONE_QUESTION in messages[5]
-    assert "Challenge review" in messages[6]
+    assert prompts.DOMAIN_QUESTION in messages[6]
+    assert prompts.PROCESS_RISK_QUESTION in messages[7]
+    assert prompts.CHALLENGE_OFFER in messages[8]
+    assert messages[9].startswith("Challenge review")
     assert "__interrupt__" not in result
     assert result["root_cause"] == "Unclear ownership"
     assert result["storyline"] == "Ownership story"
@@ -70,7 +73,7 @@ def test_every_interaction_is_kept():
 
 def test_unknown_reply_shows_assumed_proposals_and_a_number_selects_one():
     messages, result = run(
-        ["I don't know", "2", "skip", "skip", "skip", "", "4", "proceed"]
+        ["I don't know", "2", "skip", "skip", "skip", "", "4", "Finance", "Major", "yes", "proceed"]
     )
 
     assert OFFLINE_BANNER in messages[1]
@@ -94,7 +97,7 @@ def test_storyline_is_selected_by_letter_and_relationships_by_number():
             "skip",
             "",
             "balanced",
-            "proceed",
+            "Finance", "Major", "yes", "proceed",
         ]
     )
 
@@ -116,7 +119,7 @@ def test_rejected_proposals_are_replaced_by_a_second_set():
             "skip",
             "",
             "",
-            "proceed",
+            "Finance", "Major", "yes", "proceed",
         ]
     )
 
@@ -137,7 +140,7 @@ def test_own_answer_after_proposals_is_used_as_given():
             "skip",
             "",
             "",
-            "proceed",
+            "Finance", "Major", "yes", "proceed",
         ]
     )
 
@@ -146,7 +149,7 @@ def test_own_answer_after_proposals_is_used_as_given():
 
 def test_positives_are_proposed_and_selected():
     messages, result = run(
-        ["skip", "skip", "skip", "not sure", "1 and 3", "", "", "proceed"]
+        ["skip", "skip", "skip", "not sure", "1 and 3", "", "", "Finance", "Major", "yes", "proceed"]
     )
 
     assert ASSUMED_PROPOSALS["positives"][0] in messages[4]
@@ -159,11 +162,11 @@ def test_positives_are_proposed_and_selected():
 
 def test_points_come_with_the_summary_as_a_list_and_a_dictionary():
     messages, result = run(
-        ["skip", "skip", "skip", "skip", "A", "", "proceed"]
+        ["skip", "skip", "skip", "skip", "A", "", "Finance", "Major", "yes", "proceed"]
     )
 
     # the negative points need no question: they sum up the findings of the material
-    assert len(messages) == 7
+    assert len(messages) == 10
     assert result["grade"] == "A"
     assert result["pos_points"] == ASSUMED_POS_POINTS
     assert result["neg_points"] == ASSUMED_NEG_POINTS
@@ -176,7 +179,7 @@ def test_points_come_with_the_summary_as_a_list_and_a_dictionary():
 
 def test_summary_is_marked_as_assumed_and_repeats_the_inputs():
     _, result = run(
-        ["Unclear ownership", "skip", "skip", "skip", "", "3", "Not quantified yet"],
+        ["Unclear ownership", "skip", "skip", "skip", "", "3", "Finance", "Major", "yes", "Not quantified yet"],
         request="600 words",
     )
 
@@ -191,7 +194,18 @@ def test_summary_is_marked_as_assumed_and_repeats_the_inputs():
 
 
 def test_unanswered_challenge_questions_remain_as_gaps():
-    _, result = run(["skip", "skip", "skip", "skip", "", "", "proceed"])
+    _, result = run(["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "yes", "proceed"])
 
     for question in ASSUMED_CHALLENGE_QUESTIONS:
         assert f"- {question}" in result["summary"]
+
+
+def test_declined_challenge_review_asks_no_questions():
+    messages, result = run(["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "no"])
+
+    assert prompts.CHALLENGE_OFFER in messages[8]
+    assert len(messages) == 9
+    assert (result["domain"], result["process_risk"]) == ("Finance", "Major")
+    assert "__interrupt__" not in result
+    assert result.get("challenge_questions") is None
+    assert result["summary"]

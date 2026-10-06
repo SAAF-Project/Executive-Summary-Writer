@@ -36,7 +36,7 @@ from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
-from presentation import PresentationClaude, InsufficientGradeEvidence, extract_presentation, draft_fields  # noqa: E402
+from presentation import PresentationClaude, InsufficientGradeEvidence, audit_title, extract_presentation, draft_fields  # noqa: E402
 from typing import Literal  # noqa: E402
 
 ClaudeLLM = PresentationClaude
@@ -88,6 +88,7 @@ class Session:
     revision: int = 0
     status: str = "processing"
     current_step: str | None = None
+    options: list = field(default_factory=list)  # fixed answers to the current question, for a selection menu
     messages: list = field(default_factory=list)
     confirmed: dict = field(default_factory=dict)
     artifacts: list = field(default_factory=list)
@@ -149,7 +150,7 @@ class AgentService:
                 fields, draft_warnings = draft_fields(result, session.plan, MODEL_NAME)
             with session.lock:
                 session.confirmed = {step.key: result.get(step.key) for step in prompts.STEPS if step.key in result.get("done", [])}
-                for key in ("grade", "tone"):
+                for key in ("grade", "tone", "domain", "process_risk"):
                     if result.get(key): session.confirmed[key] = result[key]
                 if session.analysis and result.get("grade_suggestion"):
                     references = sorted({number for number in getattr(session.provider, "grade_reference_slides", []) if isinstance(number, int) and 1 <= number <= len(session.template["slides"])})
@@ -158,10 +159,12 @@ class AgentService:
                 if interrupts:
                     question = interrupts[0].value
                     session.current_step = question["step"]
+                    session.options = list(question.get("options", []))
                     session.messages.append(message("assistant", question["message"]))
                     session.status = "awaiting-input"
                 else:
                     session.current_step = None
+                    session.options = []
                     session.status = "awaiting-review"
                     session.artifacts = [{"id": str(uuid.uuid4()), "kind": "content", "title": "Executive summary draft", "mimeType": "text/markdown", "reviewStatus": "draft", "content": result.get("summary", ""), "confirmation": result.get("confirmation", "")}]
                     if session.plan:
@@ -179,6 +182,7 @@ class AgentService:
                     session.analysis["processRisk"].update({"grade": None, "rationale": exc.reason, "evidenceSlides": references})
                 session.needs_grade_evidence = True
                 session.current_step = "grade"
+                session.options = []
                 session.status = "awaiting-input"
                 session.messages.append(message("assistant", "More evidence is needed before recommending a process grade.\n\n" + exc.question))
                 session.error = None
@@ -208,7 +212,7 @@ class AgentService:
 
     def snapshot(self, session: Session) -> dict:
         with session.lock:
-            definitions = ([("analysis", "Read presentation")] if session.plan else []) + [(step.key, step.label) for step in prompts.STEPS] + [("grade", "Overall grade"), ("tone", "Tone"), ("challenge", "Challenge review"), ("summary", "Presentation review" if session.plan else "Draft review")]
+            definitions = ([("analysis", "Read presentation")] if session.plan else []) + [(step.key, step.label) for step in prompts.STEPS] + [("grade", "Overall grade"), ("tone", "Tone"), ("domain", "Domain"), ("process_risk", "Process risk (gross)"), ("challenge", "Challenge review"), ("summary", "Presentation review" if session.plan else "Draft review")]
             current_index = next((index for index, (key, _) in enumerate(definitions) if key == session.current_step), len(definitions) - 1 if session.artifacts else -1)
             steps = []
             for index, (key, label) in enumerate(definitions):
@@ -220,7 +224,7 @@ class AgentService:
                 elif index == current_index or key == "analysis" and session.phase == "analysis":
                     status = "current"
                 steps.append({"id": key, "label": label, "status": status})
-            return copy.deepcopy({"contractVersion": 1, "sessionId": session.id, "revision": session.revision, "status": session.status, "phase": session.phase, "analysis": session.analysis, "steps": steps, "message": session.messages[-1]["content"] if session.messages and session.messages[-1]["role"] == "assistant" else None, "messages": session.messages, "confirmed": session.confirmed, "artifacts": session.artifacts, "error": session.error})
+            return copy.deepcopy({"contractVersion": 1, "sessionId": session.id, "revision": session.revision, "status": session.status, "phase": session.phase, "analysis": session.analysis, "steps": steps, "message": session.messages[-1]["content"] if session.messages and session.messages[-1]["role"] == "assistant" else None, "options": session.options if session.status == "awaiting-input" else [], "messages": session.messages, "confirmed": session.confirmed, "artifacts": session.artifacts, "error": session.error})
 
 
 class Reply(BaseModel):
@@ -358,6 +362,7 @@ def create_app(provider_factory: Callable = LazyClaude) -> FastAPI:
                     raise ValueError("The executive-summary areas could not be located. Check the presentation layout.")
                 if slide_count != len(template["slides"]):
                     raise ValueError("The presentation and selected report do not match.")
+                plan["auditTitle"] = audit_title(data)
             except (ValueError, KeyError, TypeError, zipfile.BadZipFile, ET.ParseError) as exc:
                 raise HTTPException(400, "The presentation or its executive-summary mapping could not be read. Upload a standard .pptx with a labeled executive-summary slide.") from None
             material = evidence + material

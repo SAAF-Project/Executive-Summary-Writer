@@ -65,6 +65,8 @@ export type AgentSession = {
   status: "processing" | "awaiting-input" | "awaiting-review" | "completed" | "failed";
   steps: AgentStep[];
   message: string | null;
+  /** Fixed answers to the current question (e.g. Yes / No), shown as a selection menu. */
+  options?: string[];
   messages: AgentMessage[];
   confirmed: Record<string, string | null>;
   artifacts: AgentArtifact[];

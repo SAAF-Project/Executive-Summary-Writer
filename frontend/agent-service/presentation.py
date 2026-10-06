@@ -72,8 +72,20 @@ Use explicitly supplied audit-manager clarifications as evidence, identifying th
         return GradeSuggestion(grade=result.grade, reason=result.reason)
 
 
+def audit_title(data: bytes) -> str:
+    """The audit title on the first slide of the deck, for the report header. Empty if it cannot be read."""
+    from pptx import Presentation
+    from report_sections import read_audit_title
+    try:
+        return read_audit_title(Presentation(io.BytesIO(data)))
+    except Exception:
+        return ""
+
+
 def draft_fields(result, plan, model):
-    from report_writer import slide_text, cited
+    from report_writer import KEY_FIGURES_PLACEHOLDER, slide_text, cited
+    # header of the executive summary slide: title from the deck, the audit manager's two choices, and a placeholder
+    header = {"Audit title": plan.get("auditTitle", ""), "Domain": result.get("domain", ""), "Process risk (gross)": result.get("process_risk", ""), "Key figures": KEY_FIGURES_PLACEHOLDER}
     paragraphs = "\n\n".join(slide_text(result["summary"]))
     # The reviewed grade's exact definition is appended by the export adapter, so overrides remain consistent.
     for grade, definition in GRADES.items():
@@ -90,6 +102,7 @@ def draft_fields(result, plan, model):
         elif label.startswith("Recommendation "):
             row = int(label.rsplit(" ", 1)[1]) - 1
             content = cited(findings[row][1], model) if row < len(findings) else ""
+        elif header.get(label): content = header[label]
         else: content = target.get("source", {}).get("sourceText", "")
         fields[target["id"]] = content
     rows = sum(t["label"].startswith("Main finding ") for t in plan["summaryFields"])

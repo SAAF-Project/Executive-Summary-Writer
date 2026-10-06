@@ -294,7 +294,7 @@ class OfflineLLM(BaseLLM):
     def challenge(
         self, material: List[Dict[str, Any]], confirmed: str
     ) -> List[str]:
-        return [f"{q} {OFFLINE_BANNER}" for q in ASSUMED_CHALLENGE_QUESTIONS]
+        return [f"(Assumed.) {q}" for q in ASSUMED_CHALLENGE_QUESTIONS]
 
     def write_summary(
         self,

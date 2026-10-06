@@ -13,6 +13,13 @@ export type ReportPlan = { summaryFields: ReportField[]; gradeField: ReportField
 export type ReportEdits = { fields: Record<string, string>; grade: ProcessGrade | null; reviewed: boolean };
 
 const normalized = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+/** Header of the executive summary slide: small tables of a label and, in the next cell, its value. */
+const HEADER_FIELDS = [
+  { label: "Audit title", matches: (text: string) => text === "audit title" },
+  { label: "Domain", matches: (text: string) => text === "domain" },
+  { label: "Process risk (gross)", matches: (text: string) => text.startsWith("process risk") },
+  { label: "Key figures", matches: (text: string) => text === "key figures" },
+];
 export function reportPlan(metadata: PresentationMetadata): ReportPlan {
   const slides = metadata.slides.filter(slide => /^(executive summary|executive overview)$/i.test(slide.title.trim()));
   const plan: ReportPlan = { summaryFields: [], gradeField: null, gradeLabel: null, summarySlideId: slides[0]?.id ?? null };
@@ -27,6 +34,10 @@ export function reportPlan(metadata: PresentationMetadata): ReportPlan {
       else if (/^process grade/.test(text)) {
         const adjacent = slide.fields.find(candidate => candidate.shapeId === source.shapeId && candidate.row === source.row && candidate.column === (source.column ?? 0) + 1);
         if (adjacent) { plan.gradeLabel = field(slide, source, "Process grade label", 80); plan.gradeField = field(slide, adjacent, "Process grade", 100); }
+      } else if (source.location === "table-cell") {
+        const header = HEADER_FIELDS.find(item => item.matches(text));
+        const value = header && slide.fields.find(candidate => candidate.shapeId === source.shapeId && candidate.row === source.row && candidate.column === (source.column ?? 0) + 1);
+        if (header && value) plan.summaryFields.push(field(slide, value, header.label, 120));
       }
     }
     const grade = slide.fields.find(source => /^[A-D]$/.test(source.sourceText.trim()) && slide.elements.some(element => element.id === `${slide.id}-${source.shapeId}` && element.width > 4 && element.height > 6 && (element.fontSize ?? 0) > 2));

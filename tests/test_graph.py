@@ -140,6 +140,7 @@ def test_user_knows_everything_goes_straight_through():
             "Payment is well controlled",
             "",
             "2",
+            "Finance", "Major", "no",
         ],
     )
 
@@ -200,7 +201,7 @@ def test_summary_is_never_written_before_all_steps_are_done():
 def test_unknown_root_cause_gets_proposals_and_stops_for_a_choice():
     llm = FakeLLM()
     messages, result = run(
-        llm, ["No", "Option 2", "skip", "skip", "skip", "", ""]
+        llm, ["No", "Option 2", "skip", "skip", "skip", "", "", "Finance", "Major", "no"]
     )
 
     assert llm.calls[:3] == ["interpret", "propose:root_cause", "interpret"]
@@ -227,6 +228,7 @@ def test_rejected_proposals_are_proposed_again():
             "skip",
             "",
             "",
+            "Finance", "Major", "no",
         ],
     )
 
@@ -236,7 +238,7 @@ def test_rejected_proposals_are_proposed_again():
 
 def test_skipped_steps_and_default_tone():
     llm = FakeLLM()
-    _, result = run(llm, ["skip", "skip", "skip", "skip", "", ""])
+    _, result = run(llm, ["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "no"])
 
     assert all(result[step.key] is None for step in prompts.STEPS)
     assert result["tone"] == prompts.DEFAULT_TONE
@@ -252,7 +254,7 @@ def test_skipped_steps_and_default_tone():
 def test_storyline_chosen_from_proposals_is_not_refined():
     llm = FakeLLM()
     _, result = run(
-        llm, ["skip", "skip", "No", "Option B", "skip", "", "4"]
+        llm, ["skip", "skip", "No", "Option B", "skip", "", "4", "Finance", "Major", "no"]
     )
 
     assert "refine_storyline" not in llm.calls
@@ -263,7 +265,7 @@ def test_storyline_chosen_from_proposals_is_not_refined():
 def test_unknown_positives_get_proposals():
     llm = FakeLLM()
     messages, result = run(
-        llm, ["skip", "skip", "skip", "No", "1 and 2", "", ""]
+        llm, ["skip", "skip", "skip", "No", "1 and 2", "", "", "Finance", "Major", "no"]
     )
 
     assert messages[4] == f"OPTIONS for positives\n\n{prompts.POSITIVES.closing}"
@@ -272,7 +274,9 @@ def test_unknown_positives_get_proposals():
 
 def test_grade_is_suggested_from_the_findings_and_then_asked():
     llm = FakeLLM()
-    messages, result = run(llm, ["skip", "skip", "skip", "skip", "c", ""])
+    messages, result = run(
+        llm, ["skip", "skip", "skip", "skip", "c", "", "Finance", "Major", "no"]
+    )
 
     assert llm.calls.count("suggest_grade") == 1
     assert (
@@ -289,9 +293,11 @@ def test_grade_is_suggested_from_the_findings_and_then_asked():
 
 def test_findings_are_summarised_without_a_question():
     llm = FakeLLM()
-    messages, result = run(llm, ["skip", "skip", "skip", "skip", "", ""])
+    messages, result = run(
+        llm, ["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "no"]
+    )
 
-    assert len(messages) == 6  # steps 1-6 only
+    assert len(messages) == 9  # steps 1-6, the report header and the offer of a challenge review
     assert llm.calls.count("summarise_findings") == 1
     assert result["neg_points"] == {
         "Model is not up-to-date.": "There should be a product owner."
@@ -314,11 +320,13 @@ def test_challenge_questions_are_asked_before_the_summary():
             "skip",
             "",
             "2",
+            "Finance", "Major", "yes",
             "Exposure unknown; COO owns it",
         ],
     )
 
-    assert "1. What is the financial exposure?" in messages[6]
+    assert messages[8].endswith(prompts.CHALLENGE_OFFER)
+    assert "1. What is the financial exposure?" in messages[9]
     assert llm.calls.index("challenge") < llm.calls.index("write_summary")
     assert (
         llm.summary_args["challenge_answers"]
@@ -327,11 +335,113 @@ def test_challenge_questions_are_asked_before_the_summary():
     assert result["summary"]
 
 
+@pytest.mark.parametrize(
+    "reply, tone",
+    [
+        ("1", "Positive"),
+        ("2", "Balanced"),
+        ("3", "Neutral-professional"),
+        ("4", "Critical"),
+        ("critical", "Critical"),
+        ("Neutral-professional", "Neutral-professional"),
+    ],
+)
+def test_tone_by_number_or_name_is_read_without_the_model(reply, tone):
+    llm = FakeLLM()
+    app = build_graph(llm)
+    config = {"configurable": {"thread_id": "tone"}}
+    result = app.invoke({"material": MATERIAL}, config)
+    for earlier in ["skip", "skip", "skip", "skip", ""]:
+        result = app.invoke(Command(resume=earlier), config)
+
+    question = result["__interrupt__"][0].value
+    assert question["step"] == "tone"
+    assert question["options"] == list(prompts.TONES)
+    result = app.invoke(Command(resume=reply), config)
+    assert "interpret_tone" not in llm.calls
+    assert result["__interrupt__"][0].value["message"].startswith(
+        f"Tone noted: {tone}"
+    )
+
+
+def test_tone_in_other_words_is_read_by_the_model():
+    llm = FakeLLM()
+    _, result = run(
+        llm,
+        ["skip", "skip", "skip", "skip", "", "rather critical please", "Finance", "Major", "no"],
+    )
+
+    assert "interpret_tone" in llm.calls
+    assert result["tone"] == "Critical"
+
+
+def test_report_header_is_asked_with_fixed_answers_and_without_the_model():
+    llm = FakeLLM()
+    app = build_graph(llm)
+    config = {"configurable": {"thread_id": "header"}}
+    result = app.invoke({"material": MATERIAL}, config)
+    for reply in ["skip", "skip", "skip", "skip", "", ""]:
+        result = app.invoke(Command(resume=reply), config)
+    calls = list(llm.calls)
+
+    question = result["__interrupt__"][0].value
+    assert question["step"] == "domain"
+    assert question["options"] == ["Finance", "HR", "Corporate", "Other"]
+    # "Other" asks the audit manager to type the domain
+    result = app.invoke(Command(resume="Other"), config)
+    question = result["__interrupt__"][0].value
+    assert question["message"] == prompts.DOMAIN_OTHER and "options" not in question
+    result = app.invoke(Command(resume="IT"), config)
+
+    question = result["__interrupt__"][0].value
+    assert question["step"] == "process_risk"
+    assert question["options"] == ["Minor", "Moderate", "Material", "Major"]
+    assert question["message"].startswith("Domain noted: IT")
+    result = app.invoke(Command(resume="severe"), config)
+    assert result["__interrupt__"][0].value["message"].startswith(
+        prompts.PROCESS_RISK_RETRY
+    )
+    result = app.invoke(Command(resume="material"), config)
+    assert llm.calls == calls  # no model call for the header
+
+    result = app.invoke(Command(resume="no"), config)
+    assert result["domain"] == "IT"
+    assert result["process_risk"] == "Material"
+
+
+def test_challenge_review_is_only_done_when_asked_for():
+    llm = FakeLLM(challenge_questions=["What is the financial exposure?"])
+    messages, result = run(
+        llm, ["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "perhaps", "No"]
+    )
+
+    # a reply that is neither yes nor no gets the offer again
+    assert messages[9] == f"{prompts.CHALLENGE_RETRY}\n\n{prompts.CHALLENGE_OFFER}"
+    assert "challenge" not in llm.calls
+    assert llm.summary_args["challenge_questions"] == []
+    assert result["summary"]
+
+
+def test_challenge_review_has_at_most_three_questions():
+    llm = FakeLLM(challenge_questions=[f"Question {n}?" for n in range(1, 7)])
+    messages, _ = run(
+        llm, ["skip", "skip", "skip", "skip", "", "", "Finance", "Major", "yes", "proceed"]
+    )
+
+    assert "3. Question 3?" in messages[9]
+    assert "Question 4?" not in messages[9]
+    assert llm.summary_args["challenge_questions"] == [
+        "Question 1?",
+        "Question 2?",
+        "Question 3?",
+    ]
+
+
 def test_confirmation_has_at_most_six_bullets_and_request_is_passed_on():
     llm = FakeLLM()
     _, result = run(
         llm,
-        ["Ownership", "F1 causes F2", "Story", "Good controls", "D", "2"],
+        ["Ownership", "F1 causes F2", "Story", "Good controls", "D", "2", "Finance", "Major", "no"],
         request="3 paragraphs / 600 words",
     )
 

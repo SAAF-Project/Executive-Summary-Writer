@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from material import DEFAULT_SOURCES  # noqa: E402
 from report_sections import count_risks, read_findings  # noqa: E402
 from report_writer import (  # noqa: E402
+    KEY_FIGURES_PLACEHOLDER,
     fill_finding_numbers,
+    fill_header,
     fill_grade,
     fill_findings_table,
     fill_positive_block,
@@ -438,3 +440,79 @@ def test_template_with_grade(tmp_path):
     assert "D" in texts and "B" not in texts
     square = next(s for s in box.shapes if s.text_frame.text == "D")
     assert str(square.fill.fore_color.rgb) == "FF0000"
+
+
+# -------------------- Header of the executive summary slide --------------------
+
+
+def make_header_deck():
+    """Title slide, table of contents, and an executive summary slide with the four header tables."""
+    deck = Presentation()
+    cover = deck.slides.add_slide(deck.slide_layouts[0])
+    # the title holds the audit title and, on a second line, the date
+    cover.shapes.title.text_frame.text = "25123-0070 Claims handling (DRAFT)\x0b01/10/2026"
+    contents, summary = (
+        deck.slides.add_slide(deck.slide_layouts[6]) for _ in range(2)
+    )
+    icon = contents.shapes.add_shape(
+        MSO_SHAPE.OVAL, Inches(1), Inches(1), Inches(1), Inches(1)
+    )
+    icon.click_action.target_slide = summary
+    contents.shapes.add_textbox(
+        Inches(1), Inches(2.2), Inches(3), Inches(0.5)
+    ).text_frame.text = "Executive summary"
+    for column, label in enumerate(
+        ("Audit title", "Domain", "Process risk (gross)", "Key figures")
+    ):
+        table = summary.shapes.add_table(
+            1, 2, Inches(0.5 + 2.2 * column), Inches(0.3), Inches(2), Inches(0.3)
+        ).table
+        table.cell(0, 0).text_frame.text = label
+        table.cell(0, 1).text_frame.paragraphs[0].add_run().text = "XXX"
+    return deck
+
+
+def header_values(deck, slide):
+    return {
+        shape.table.cell(0, 0).text: shape.table.cell(0, 1).text
+        for shape in list(deck.slides)[slide].shapes
+        if getattr(shape, "has_table", False)
+        and len(shape.table.rows) == 1
+        and len(shape.table.columns) == 2
+    }
+
+
+def test_header_gets_title_choices_and_a_placeholder_for_key_figures():
+    deck = make_header_deck()
+    fill_header(deck, "Finance", "Material")
+
+    assert header_values(deck, 2) == {
+        "Audit title": "25123-0070 Claims handling (DRAFT)",  # without the date
+        "Domain": "Finance",
+        "Process risk (gross)": "Material",
+        "Key figures": KEY_FIGURES_PLACEHOLDER,
+    }
+
+
+def test_header_values_that_are_not_given_keep_their_placeholder():
+    deck = make_header_deck()
+    fill_header(deck)
+
+    values = header_values(deck, 2)
+    assert values["Domain"] == "XXX" and values["Process risk (gross)"] == "XXX"
+    assert values["Key figures"] == KEY_FIGURES_PLACEHOLDER
+
+
+@pytest.mark.skipif(not TEMPLATE.is_file(), reason="template not in checkout")
+def test_template_header(tmp_path):
+    out_file = tmp_path / "template.pptx"
+    write_summary_to_deck(
+        TEMPLATE, SUMMARY, out_file, domain="HR", process_risk="Major"
+    )
+
+    assert header_values(Presentation(str(out_file)), 3) == {
+        "Audit title": "25XXX-0070 [AUDIT NAME] (DRAFT)",
+        "Domain": "HR",
+        "Process risk (gross)": "Major",
+        "Key figures": KEY_FIGURES_PLACEHOLDER,
+    }

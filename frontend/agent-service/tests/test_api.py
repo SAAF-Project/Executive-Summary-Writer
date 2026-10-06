@@ -92,8 +92,22 @@ def test_original_graph_questions_replies_review_and_idempotency(client):
     assert invalid_grade["steps"][4]["status"] == "current"
     session = reply(client, invalid_grade, "C", "grade-reply-unique")
     assert session["confirmed"]["grade"] == "C"
+    assert session["options"] == ["Positive", "Balanced", "Neutral-professional", "Critical"]
     session = reply(client, session, "Balanced", "tone-reply-unique")
+    # the two header questions carry their fixed answers for the selection menu
     assert session["steps"][6]["status"] == "current"
+    assert session["options"] == ["Finance", "HR", "Corporate", "Other"]
+    session = reply(client, session, "HR", "domain-reply-unique")
+    assert session["options"] == ["Minor", "Moderate", "Material", "Major"]
+    session = reply(client, session, "Major", "process-risk-reply")
+    assert session["confirmed"]["domain"] == "HR"
+    assert session["steps"][8]["status"] == "current"
+    # the challenge review is offered first, with its two fixed answers for the selection menu
+    assert "Would you like a challenge review" in session["message"]
+    assert session["options"] == ["Yes", "No"]
+    session = reply(client, session, "Yes", "challenge-offer-unique")
+    assert session["steps"][8]["status"] == "current"
+    assert session["options"] == []
     session = reply(client, session, "The process owner.", "challenge-reply-unique")
     assert session["status"] == "awaiting-review"
     assert session["artifacts"][0]["reviewStatus"] == "draft"
@@ -234,7 +248,7 @@ def test_actual_anonymized_deck_drives_latest_graph_and_review(monkeypatch):
         session=settled(client,response.json()["sessionId"])
         assert session["analysis"]["processRisk"]["grade"] is None
         assert "tailored test-only" in session["message"]
-        for i, text in enumerate(["Cause", "Relationships", "Storyline", "Positives", "C", "Balanced", "The process owner"]):
+        for i, text in enumerate(["Cause", "Relationships", "Storyline", "Positives", "C", "Balanced", "Finance", "Major", "Yes", "The process owner"]):
             session=reply(client, session, text, f"actual-deck-reply-{i}")
         artifact=session["artifacts"][0]
         assert artifact["grade"]=="C"
@@ -299,7 +313,7 @@ def test_placeholder_deck_requests_grade_evidence_and_resumes_latest_graph():
         assert session["analysis"]["processRisk"]["grade"]=="C"
         assert session["analysis"]["processRisk"]["evidenceSlides"]==[1]
         assert "grade" in session["message"].lower()
-        for i,text in enumerate(["yes", "Balanced", "The process owner"]):
+        for i,text in enumerate(["yes", "Balanced", "Finance", "Major", "Yes", "The process owner"]):
             session=reply(client,session,text,f"post-evidence-reply-{i}")
         assert session["status"]=="awaiting-review"
         assert session["confirmed"]["grade"]=="C"

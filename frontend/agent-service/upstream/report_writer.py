@@ -17,6 +17,12 @@ Medium" or "Risk: Low".
 - the table in the section "Finding overview" gets one row per finding, with a 1 under its level, and
   the same numbers in the row "Total".
 
+The header of the executive summary slide is four small tables of a label and a value:
+
+- "Audit title" gets the title on the first slide of the deck;
+- "Domain" and "Process risk (gross)" get what the audit manager chose;
+- "Key figures" gets a placeholder that stands out, for the audit manager to complete.
+
 Placeholder text is replaced; headings and formatting are kept. The input deck is not changed: the
 result is saved as a new file.
 """
@@ -31,7 +37,13 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from pptx.dml.color import RGBColor
 from pptx.util import Emu, Pt
 
-from report_sections import RISK_LEVELS, count_risks, locate_sections, read_findings
+from report_sections import (
+    RISK_LEVELS,
+    count_risks,
+    locate_sections,
+    read_audit_title,
+    read_findings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +52,13 @@ SUMMARY_BLOCK = "Audit conclusion"
 SUMMARY_HEADING = "Executive Board Summary"
 POSITIVE_BLOCK = "Positive aspects"
 FINDINGS_TABLE = "Main findings"
+# labels of the header tables on the executive summary slide
+HEADER_TITLE = "Audit title"
+HEADER_DOMAIN = "Domain"
+HEADER_RISK = "Process risk"
+HEADER_FIGURES = "Key figures"
+# the key figures are not known to the agent: the audit manager completes them
+KEY_FIGURES_PLACEHOLDER = "[KEY FIGURES: TO BE ADDED]"
 COUNTS_BOX = "Findings"
 # fill colour of the grade square, as in the grading table of the report
 GRADE_COLOURS = {"A": "00B050", "B": "FFFF00", "C": "FFC000", "D": "FF0000"}
@@ -253,6 +272,36 @@ def _set_text(shape: Any, text: str) -> None:
     first.text = text
 
 
+def fill_header(deck: Any, domain: str = "", process_risk: str = "") -> Dict[str, str]:
+    """Fill the header tables of the executive summary slide. Returns label -> value as written.
+
+    Each one is a table of one row: a label and its value. The audit title is read from the first
+    slide and the key figures get a placeholder. Domain and process risk are written when given. A
+    table that is not on the slide, or a value that is empty, is left out.
+    """
+    values = {
+        HEADER_TITLE: read_audit_title(deck),
+        HEADER_DOMAIN: domain,
+        HEADER_RISK: process_risk,
+        HEADER_FIGURES: KEY_FIGURES_PLACEHOLDER,
+    }
+    written: Dict[str, str] = {}
+    for _, shape in _section_tables(deck):
+        table = shape.table
+        if len(table.rows) != 1 or len(table.columns) != 2:
+            continue
+        label, value = table.cell(0, 0), table.cell(0, 1)
+        for name, text in values.items():
+            if (
+                text
+                and label.text.strip().startswith(name)
+                and value.text_frame.paragraphs[0].runs
+            ):
+                _set_text(value, text)
+                written[name] = text
+    return written
+
+
 def _findings_box(deck: Any) -> Tuple[int, List[Any]]:
     """(slide number, shapes) of the "Findings" box on the executive summary slide.
 
@@ -397,16 +446,20 @@ def write_summary_to_deck(
     neg_points: Optional[Dict[str, str]] = None,
     model: str = "",
     grade: str = "",
+    domain: str = "",
+    process_risk: str = "",
 ) -> int:
     """Save a copy of the deck `source` with the summary on its executive summary slide.
 
     The positive points, the findings and the overall grade are written on the same slide when they are
-    given. The number of findings per risk level is always written, as it is read from the deck itself.
+    given, and so are the domain and the process risk in the header. The audit title, the placeholder
+    for the key figures and the number of findings per risk level are always written.
     """
     from pptx import Presentation
 
     deck = Presentation(str(source))
     number = fill_summary_block(deck, summary)
+    fill_header(deck, domain, process_risk)
     if pos_points:
         fill_positive_block(deck, pos_points)
     if neg_points:

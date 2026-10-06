@@ -91,9 +91,11 @@ flowchart TD
     I4 -- "confirmed / skipped" --> P5
     P5["Step 5 · Overall grade<br/>Claude suggests A-D from the findings"] --> Q5["Audit manager accepts<br/>or chooses A, B, C or D"]
     Q5 --> Q6
-    Q6["Step 6 · Tone<br/>default: Balanced"] --> C
-    C["Challenge review<br/>Board · regulator · external auditor · CRO"] --> G{critical gaps?}
-    G -- yes --> A["Ask the audit manager"] --> S
+    Q6["Step 6 · Tone<br/>default: Balanced"] --> H["Report header<br/>domain · process risk (fixed answers)"]
+    H --> O{"Challenge review?<br/>Yes / No"}
+    O -- No --> S
+    O -- Yes --> C["Challenge review<br/>Board · regulator · external auditor · CRO"] --> G{critical gaps?}
+    G -- yes --> A["Ask max 3 short questions"] --> S
     G -- no --> S
     S["Confirmation (max 6 bullets)"] --> W["Executive Board summary + Potential Gaps,<br/>positive points"]
     W --> F["Main findings table<br/>one direct call, no question"] --> J["JSON output"]
@@ -132,12 +134,26 @@ flowchart TD
    | C | Risks identified in the audited process are not sufficiently mitigated (one or more). Short-term actions are required. |
    | D | Risks identified in the audited process are not mitigated (one or more). Immediate actions are required. |
 
-6. **Findings without questions.** The main findings and their recommendations
+6. **Tone by name or number.** The tone question passes its four tones as
+   `options`. A reply that is one of them, by name or by number (1-4), is read
+   without the model; only a reply in other words goes to the model.
+7. **Report header.** Two questions with fixed answers, read without the model:
+   the domain (Finance, HR, Corporate, or Other, after which the audit manager
+   types it) and the gross process risk (Minor, Moderate, Material, Major). The
+   lists are `DOMAINS` and `PROCESS_RISKS` in `scripts/prompts.py`.
+8. **Challenge review on request.** After the tone, the agent asks "Would you
+   like a challenge review before I write the summary?" with the fixed answers
+   Yes and No (no reply means No). Only on Yes does the model look for missing
+   information, and it asks at most three questions of one short sentence each
+   (`MAX_CHALLENGE_QUESTIONS` in `scripts/prompts.py`). The fixed answers of a
+   question are passed to the interface as `options`, so the web interface in
+   `frontend/` shows them as buttons; the overall grade does the same with A-D.
+9. **Findings without questions.** The main findings and their recommendations
    are in the audit material already, so the audit manager is not asked for
    them. After the summary, one direct call sums up each finding and its
    recommendation in a sentence each (`SUMMARISE_FINDINGS` in
    `scripts/prompts.py`).
-7. **Output.** The result is one JSON object, which is printed and saved as
+10. **Output.** The result is one JSON object, which is printed and saved as
    `output/executive-summary_<date>_<time>.json`:
 
    ```json
@@ -148,7 +164,9 @@ flowchart TD
        "Payment is not well controlled.": "The team should have a gateway.",
        "Model is not up-to-date.": "There should be a product owner."
      },
-     "grade": "B"
+     "grade": "B",
+     "domain": "Finance",
+     "process_risk": "Material"
    }
    ```
 
@@ -156,7 +174,8 @@ flowchart TD
    section, as text. `pos_points` is a list of positive points. `neg_points`
    maps each main finding (four at most) to a one-sentence summary of its
    recommendation; where the material gives none, the model suggests one.
-   `grade` is the overall grade the audit manager chose.
+   `grade` is the overall grade the audit manager chose, and `domain` and
+   `process_risk` are their two choices for the report header.
 
 ## Findings in a report deck
 
@@ -199,6 +218,17 @@ The note after a recommendation is added by the code (`AI_NOTE` in
 `scripts/report_writer.py`), not by the model, so it is always there. The column
 "Finding owner" is left for the audit manager. The table of the template has
 four rows; findings beyond that are not written and are named in a warning.
+
+### Header of the executive summary slide
+
+The four small tables at the top of the slide are filled as follows:
+
+| Table | Value |
+|---|---|
+| Audit title | The first line of the title on the first slide of the deck (the second line is the date) |
+| Domain | The audit manager's choice: Finance, HR, Corporate, or their own text |
+| Process risk (gross) | The audit manager's choice: Minor, Moderate, Material or Major |
+| Key figures | The placeholder `[KEY FIGURES: TO BE ADDED]`, for the audit manager to complete |
 
 ### Number of findings per risk level
 

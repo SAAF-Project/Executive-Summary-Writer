@@ -509,6 +509,7 @@ input::placeholder, textarea::placeholder { color: #607087; opacity: 1; }
 .agent-working { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; padding: 7px 0; }
 .reply-form { border-top: 1px solid var(--line); padding: 21px 28px; background: #fbfcfe; }
 .reply-form > div { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 11px; }
+.reply-form > .reply-options { justify-content: flex-start; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
 .reply-form p { font-size: 10px; }
 .conversation-error { padding: 17px 28px; background: #fff4f4; border-top: 1px solid #ebc7cc; }
 .conversation-error p { color: #8e2537; font-size: 12px; margin-bottom: 11px; }

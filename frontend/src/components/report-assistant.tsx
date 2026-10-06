@@ -152,10 +152,11 @@ export function ReportAssistant({ records, activeId, openExisting = false, fresh
     } catch (error) { setError(errorText(error)); }
     finally { setBusy(false); if (fileInput.current) fileInput.current.value = ""; }
   }
-  async function sendReply(event: FormEvent) {
-    event.preventDefault(); if (!session || busy || !reply.trim()) return;
+  function sendReply(event: FormEvent) { event.preventDefault(); void submitReply(reply); }
+  async function submitReply(value: string) {
+    const text = value.trim(); if (!session || busy || !text) return;
     setBusy(true); setError(null);
-    if (pendingReply.current?.text !== reply.trim()) pendingReply.current = { text: reply.trim(), key: crypto.randomUUID() };
+    if (pendingReply.current?.text !== text) pendingReply.current = { text, key: crypto.randomUUID() };
     try {
       setSession(await agentClient.reply({ sessionId: session.sessionId, expectedRevision: session.revision, idempotencyKey: pendingReply.current.key, reply: pendingReply.current.text }));
       setReply(""); pendingReply.current = null;
@@ -220,7 +221,7 @@ export function ReportAssistant({ records, activeId, openExisting = false, fresh
           {session.analysis && <div className="deck-analysis-overview"><h3>What the agent found</h3><p>{session.analysis.overview}</p></div>}
           <div className="conversation-messages" aria-live="polite" aria-relevant="additions">{session.messages.map(item => <article key={item.id} className={`chat-message chat-${item.role}`}><span>{item.role === "assistant" ? "Report assistant" : "You"}</span><p>{item.content}</p></article>)}{session.status === "processing" && <div className="agent-working" role="status"><LoaderCircle size={16} className="spin" /><span>{session.phase === "analysis" ? "Reading the presentation and assessing the process grade…" : session.phase === "format" ? "Preparing the executive-summary slide…" : "The agent is working on this step…"}</span></div>}<div ref={end} /></div>
           {session.error && <div className="conversation-error" role="alert"><p>{session.error.message}</p><button className="button secondary" disabled={busy || !status?.ready} onClick={() => void retry()}><RefreshCw size={14} />Retry this step</button></div>}
-          {session.status === "awaiting-input" && <form className="reply-form" onSubmit={sendReply}><label className="sr-only" htmlFor="agent-reply">Your reply to the agent</label><textarea id="agent-reply" rows={3} maxLength={20000} value={reply} onChange={event => setReply(event.target.value)} placeholder="Answer the question or ask the agent for suggestions." disabled={busy} /><div><p>You can explain the findings in your own words.</p><button className="button primary" disabled={busy || !status?.ready || !reply.trim()}>{busy ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}Send reply</button></div></form>}
+          {session.status === "awaiting-input" && <form className="reply-form" onSubmit={sendReply}>{!!session.options?.length && <div className="reply-options" role="group" aria-label="Choose an answer">{session.options.map(option => <button type="button" key={option} className="button secondary" disabled={busy || !status?.ready} onClick={() => void submitReply(option)}>{option}</button>)}</div>}<label className="sr-only" htmlFor="agent-reply">Your reply to the agent</label><textarea id="agent-reply" rows={3} maxLength={20000} value={reply} onChange={event => setReply(event.target.value)} placeholder="Answer the question or ask the agent for suggestions." disabled={busy} /><div><p>You can explain the findings in your own words.</p><button className="button primary" disabled={busy || !status?.ready || !reply.trim()}>{busy ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}Send reply</button></div></form>}
           {artifact && <button className="button primary" onClick={() => setReviewVisible(true)}>Review presentation</button>}
         </>}
       </section>

@@ -6,7 +6,13 @@ grade and tone have each been confirmed or explicitly skipped, and after the cha
 is a LangGraph interrupt, so the run stops there until a reply is supplied.
 
     root cause -> relationships -> storyline -> positive aspects -> overall grade -> tone
-        -> challenge review -> confirmation -> summary -> main findings table
+        -> report header (domain, process risk) -> challenge review -> confirmation -> summary
+        -> main findings table
+
+The two questions for the report header have fixed answers and are read without the model.
+
+The challenge review is optional: the audit manager is asked first whether they want one. Without it
+the summary is written straight away; with it, at most three short questions are asked.
 
 For the overall grade the order is the other way round: the model suggests a grade (A-D) from the
 findings first, and the audit manager accepts it or chooses another. That reply is read without the
@@ -49,8 +55,12 @@ class SummaryState(TypedDict, total=False):
     grade_reason: str
     grade: str  # the grade the audit manager chose: A, B, C or D
     tone: str
+    domain: str  # report header: Finance, HR, Corporate, or the audit manager's own text
+    domain_other: bool  # the audit manager chose "Other" and is asked to type the domain
+    process_risk: str  # report header: Minor, Moderate, Material or Major
     done: List[str]  # steps that were confirmed or explicitly skipped
     proposals: Dict[str, str]  # step key -> options currently on the table
+    challenge_wanted: bool  # the audit manager asked for a challenge review
     challenge_questions: List[str]
     challenge_answers: str
     # working values
@@ -84,6 +94,15 @@ def confirmed_text(state: SummaryState) -> str:
 def _with_ack(state: SummaryState, message: str) -> str:
     ack = state.get("ack")
     return f"{ack}\n\n{message}" if ack else message
+
+
+def _choice(reply: str, options: Any) -> Optional[str]:
+    """The option a reply names, by its text or by its number (1, 2, ...). None if it names no option."""
+    text = reply.strip(" .").lower()
+    for number, option in enumerate(options, start=1):
+        if text in (option.lower(), str(number)):
+            return option
+    return None
 
 
 def build_graph(llm: Any, checkpointer: Any = None):
@@ -193,7 +212,13 @@ def build_graph(llm: Any, checkpointer: Any = None):
             definition=prompts.GRADES[grade],
             reason=state["grade_reason"],
         )
-        reply = interrupt({"step": "grade", "message": _with_ack(state, message)})
+        reply = interrupt(
+            {
+                "step": "grade",
+                "message": _with_ack(state, message),
+                "options": list(prompts.GRADES),
+            }
+        )
         return {"reply": str(reply).strip(), "ack": ""}
 
     def grade_interpret(state: SummaryState) -> dict:
@@ -215,16 +240,87 @@ def build_graph(llm: Any, checkpointer: Any = None):
             {
                 "step": "tone",
                 "message": _with_ack(state, prompts.TONE_QUESTION),
+                "options": list(prompts.TONES),
             }
         )
         return {"reply": str(reply).strip(), "ack": ""}
 
     def tone_interpret(state: SummaryState) -> dict:
         reply = state["reply"]
-        tone = llm.interpret_tone(reply) if reply else prompts.DEFAULT_TONE
+        # one of the four tones, by its name or its number, is read without the model
+        tone = (
+            _choice(reply, prompts.TONES) or llm.interpret_tone(reply)
+            if reply
+            else prompts.DEFAULT_TONE
+        )
         return {"tone": tone, "ack": f"Tone noted: {tone}"}
 
-    # -------------------- Challenge review --------------------
+    # -------------------- Report header: domain and process risk (fixed answers) --------------------
+
+    def domain_ask(state: SummaryState) -> dict:
+        if state.get("domain_other"):
+            question = {"step": "domain", "message": prompts.DOMAIN_OTHER}
+        else:
+            question = {
+                "step": "domain",
+                "message": _with_ack(state, prompts.DOMAIN_QUESTION),
+                "options": list(prompts.DOMAINS),
+            }
+        return {"reply": str(interrupt(question)).strip(), "ack": ""}
+
+    def domain_interpret(state: SummaryState) -> dict:
+        reply = state["reply"]
+        choice = None if state.get("domain_other") else _choice(reply, prompts.DOMAINS)
+        if choice == prompts.DOMAINS[-1] or not reply:
+            # "Other", or no reply: the audit manager types the domain
+            return {"domain_other": True, "decision": "unknown"}
+        domain = choice or reply
+        return {
+            "domain": domain,
+            "domain_other": False,
+            "decision": "confirmed",
+            "ack": f"Domain noted: {domain}",
+        }
+
+    def process_risk_ask(state: SummaryState) -> dict:
+        reply = interrupt(
+            {
+                "step": "process_risk",
+                "message": _with_ack(state, prompts.PROCESS_RISK_QUESTION),
+                "options": list(prompts.PROCESS_RISKS),
+            }
+        )
+        return {"reply": str(reply).strip(), "ack": ""}
+
+    def process_risk_interpret(state: SummaryState) -> dict:
+        choice = _choice(state["reply"], prompts.PROCESS_RISKS)
+        if choice is None:
+            return {"decision": "unknown", "ack": prompts.PROCESS_RISK_RETRY}
+        return {
+            "process_risk": choice,
+            "decision": "confirmed",
+            "ack": f"Process risk noted: {choice}",
+        }
+
+    # -------------------- Challenge review (only when the audit manager wants one) --------------------
+
+    def challenge_offer(state: SummaryState) -> dict:
+        reply = interrupt(
+            {
+                "step": "challenge",
+                "message": _with_ack(state, prompts.CHALLENGE_OFFER),
+                "options": list(prompts.CHALLENGE_OPTIONS),
+            }
+        )
+        return {"reply": str(reply).strip(), "ack": ""}
+
+    def challenge_offer_interpret(state: SummaryState) -> dict:
+        choice = state["reply"].upper().strip(" .!")
+        if choice in prompts.CHALLENGE_YES:
+            return {"challenge_wanted": True, "decision": "yes"}
+        if choice in prompts.CHALLENGE_NO:
+            return {"challenge_wanted": False, "decision": "no"}
+        return {"decision": "unknown", "ack": prompts.CHALLENGE_RETRY}
 
     def challenge_review(state: SummaryState) -> dict:
         logger.info(
@@ -235,18 +331,16 @@ def build_graph(llm: Any, checkpointer: Any = None):
             for q in llm.challenge(state["material"], confirmed_text(state))
             if q.strip()
         ]
-        return {"challenge_questions": questions}
+        return {
+            "challenge_questions": questions[: prompts.MAX_CHALLENGE_QUESTIONS]
+        }
 
     def challenge_ask(state: SummaryState) -> dict:
         questions = "\n".join(
             f"{i}. {q}"
             for i, q in enumerate(state["challenge_questions"], start=1)
         )
-        message = (
-            "Challenge review. Before I write the summary, the following information would be "
-            f"important for a board-level summary:\n\n{questions}\n\n"
-            "Please answer what you can, or reply 'proceed' to continue with the information available."
-        )
+        message = prompts.CHALLENGE_QUESTIONS.format(questions=questions)
         reply = interrupt(
             {"step": "challenge", "message": _with_ack(state, message)}
         )
@@ -287,6 +381,12 @@ def build_graph(llm: Any, checkpointer: Any = None):
     graph.add_node("grade_interpret", grade_interpret)
     graph.add_node("tone_ask", tone_ask)
     graph.add_node("tone_interpret", tone_interpret)
+    graph.add_node("domain_ask", domain_ask)
+    graph.add_node("domain_interpret", domain_interpret)
+    graph.add_node("process_risk_ask", process_risk_ask)
+    graph.add_node("process_risk_interpret", process_risk_interpret)
+    graph.add_node("challenge_offer", challenge_offer)
+    graph.add_node("challenge_offer_interpret", challenge_offer_interpret)
     graph.add_node("challenge_review", challenge_review)
     graph.add_node("challenge_ask", challenge_ask)
     graph.add_node("confirm", confirm)
@@ -301,7 +401,29 @@ def build_graph(llm: Any, checkpointer: Any = None):
         {"ask": "grade_ask", "next": "tone_ask"},
     )
     graph.add_edge("tone_ask", "tone_interpret")
-    graph.add_edge("tone_interpret", "challenge_review")
+    graph.add_edge("tone_interpret", "domain_ask")
+    graph.add_edge("domain_ask", "domain_interpret")
+    graph.add_conditional_edges(
+        "domain_interpret",
+        lambda state: "next" if state["decision"] == "confirmed" else "ask",
+        {"ask": "domain_ask", "next": "process_risk_ask"},
+    )
+    graph.add_edge("process_risk_ask", "process_risk_interpret")
+    graph.add_conditional_edges(
+        "process_risk_interpret",
+        lambda state: "next" if state["decision"] == "confirmed" else "ask",
+        {"ask": "process_risk_ask", "next": "challenge_offer"},
+    )
+    graph.add_edge("challenge_offer", "challenge_offer_interpret")
+    graph.add_conditional_edges(
+        "challenge_offer_interpret",
+        lambda state: state["decision"],
+        {
+            "yes": "challenge_review",
+            "no": "confirm",
+            "unknown": "challenge_offer",
+        },
+    )
     graph.add_conditional_edges(
         "challenge_review",
         lambda state: "ask" if state["challenge_questions"] else "confirm",

@@ -115,6 +115,13 @@ def load_section(presentation: Any, name: str) -> str:
     )
 
 
+def read_audit_title(presentation: Any) -> str:
+    """The title of the audit: the first line of the title on the first slide (the second is the date)."""
+    slides = list(presentation.slides)
+    lines = _slide_title(slides[0]).replace("\x0b", "\n").splitlines() if slides else []
+    return " ".join(lines[0].split()) if lines else ""
+
+
 def read_findings(presentation: Any) -> List[Tuple[str, Optional[str]]]:
     """(finding title, risk level) for every slide with the title "Findings and recommendations".
 

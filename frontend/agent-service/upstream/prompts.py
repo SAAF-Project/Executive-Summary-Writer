@@ -260,7 +260,48 @@ around. Keep the audit manager's message and intent. Do not add facts that \
 are not in the audit material or in what has been confirmed so far. Return \
 the storyline and nothing else."""
 
+# -------------------- Report header --------------------
+# Two values for the header of the executive summary slide. Fixed questions and
+# fixed answers, read without the model: in a user interface each one is a
+# drop-down menu.
+
+DOMAINS = ("Finance", "HR", "Corporate", "Other")
+DOMAIN_QUESTION = (
+    "Report header: which domain does the audit belong to?\n\n"
+    "1. Finance\n2. HR\n3. Corporate\n4. Other (you type the domain)"
+)
+DOMAIN_OTHER = "Please type the domain."
+
+PROCESS_RISKS = ("Minor", "Moderate", "Material", "Major")
+PROCESS_RISK_QUESTION = (
+    "Report header: what is the process risk (gross)?\n\n"
+    "1. Minor\n2. Moderate\n3. Material\n4. Major"
+)
+PROCESS_RISK_RETRY = "Please reply Minor, Moderate, Material or Major."
+
 # -------------------- Challenge review --------------------
+# Optional: the audit manager is asked first. The offer, its two options and
+# the reading of the reply are fixed texts: in a user interface the choice is a
+# selection menu.
+
+CHALLENGE_OFFER = (
+    "Would you like a challenge review before I write the summary?\n\n"
+    "It is a quick check, in at most three short questions, of what a Board "
+    "member, the regulator, the external auditor or the Chief Risk Officer "
+    "might still ask.\n\n"
+    "Reply Yes or No."
+)
+CHALLENGE_OPTIONS = ("Yes", "No")
+CHALLENGE_RETRY = "Please reply Yes or No."
+# replies that accept or decline the challenge review; no reply declines it
+CHALLENGE_YES = ("YES", "Y", "1")
+CHALLENGE_NO = ("NO", "N", "2", "")
+MAX_CHALLENGE_QUESTIONS = 3
+CHALLENGE_QUESTIONS = (
+    "Challenge review. Before I write the summary:\n\n{questions}\n\n"
+    "Answer what you can, or reply 'proceed' to continue without."
+)
+
 
 CHALLENGE_REVIEW = """\
 Root cause, relationships, storyline, positive aspects, overall grade and \
@@ -277,10 +318,14 @@ instance the business or financial impact, who owns the issue, how and when \
 it will be remediated, regulatory consequences, whether the issue has \
 occurred before, or management's own position.
 
-Return the questions you would put to the audit manager. Include a question \
-only when the answer matters for a board-level summary and cannot be found in \
-the audit material or in what has been confirmed. If nothing important is \
-missing, return an empty list."""
+Return the questions you would put to the audit manager: three at most, the \
+most important first. Include a question only when the answer matters for a \
+board-level summary and cannot be found in the audit material or in what has \
+been confirmed. If nothing important is missing, return an empty list.
+
+Keep it light. Each question is one short sentence of at most 20 words, in \
+plain words, about one thing only. No introduction, no explanation of why you \
+ask, and no naming of the reader who would ask it."""
 
 # -------------------- Final summary --------------------
 

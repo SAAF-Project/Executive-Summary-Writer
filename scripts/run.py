@@ -1,7 +1,8 @@
 """Entry point: guides the audit manager through the preparation phase in the terminal, then writes
 the Executive Board summary. The output is a JSON file with the summary ("exe_summary"), the positive
 points ("pos_points", a list), the main findings with a recommendation each ("neg_points", finding
--> recommendation) and the overall grade ("grade", A-D).
+-> recommendation), the overall grade ("grade", A-D) and the two header values the audit manager chose
+("domain" and "process_risk").
 
     python scripts/run.py                                    # the sample .pptx report
     python scripts/run.py report.docx
@@ -203,9 +204,13 @@ def main() -> int:
         "pos_points": result["pos_points"],
         "neg_points": result["neg_points"],
         "grade": result["grade"],
+        "domain": result["domain"],
+        "process_risk": result["process_risk"],
     }
     print(output["exe_summary"])
     print(f"\nOverall grade: {output['grade']}")
+    print(f"Domain: {output['domain']}")
+    print(f"Process risk (gross): {output['process_risk']}")
     print("\nPositive points:")
     for point in output["pos_points"]:
         print(f"- {point}")
@@ -245,6 +250,8 @@ def main() -> int:
                 output["neg_points"],
                 llm.name,
                 output["grade"],
+                output["domain"],
+                output["process_risk"],
             )
         except ValueError as exc:
             print(f"[!] The summary was not put on the slide: {exc}")
