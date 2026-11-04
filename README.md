@@ -493,9 +493,27 @@ and the default tone are handled.
   later.
 - Not yet evaluated on a set of reports with reference summaries.
 
+## Model & data residency
+
+- **Claude (default):** the audit material, the conversation and the prompts are sent to Anthropic's API under your own `ANTHROPIC_API_KEY`. The model comes from `ANTHROPIC_MODEL` (see *Configuration*). With `USE_REFUSAL_FALLBACKS=1`, a declined request is re-run on Anthropic's fallback model.
+- **OpenAI:** the same data goes to the client and deployment defined in your local `scripts/openai_config.py` (OpenAI or Azure OpenAI).
+- **Offline test:** nothing leaves the machine.
+- The web frontend sends the uploaded deck to the Python agent service, which calls the configured model in the same way (see `frontend/README.md`).
+- TODO(owner): state the hosting region of the model calls, and whether an EU-hosted or local model option is supported or recommended for confidential reports.
+
+## Limitations & human-review gate
+
+The summary is a **draft for the audit manager**. Review and edit it before it goes to the Executive Board; it is not a final audit communication. See *Known gaps / TODO* above and `AUDIT-CRITERIA.md` section 5 for the known limits. Offline-test output is assumed text, marked `[OFFLINE TEST: …]`, and must never be used as a summary.
+
+## Guardrails
+
+The agent scripts run no prohibited command from SAAF's `regulatory/guardrails/allowed-commands.md` (`rm`, `sudo`, `curl`, `wget`, `ssh`, `scp`, `chmod`, `chown`, `cron`, runtime `pip install`). The only subprocess is LibreOffice (`soffice --headless --convert-to`), which converts `.doc`, `.xls` and `.ppt` input (`scripts/material.py`). TODO(owner): confirm that this LibreOffice call is acceptable under the guardrails.
+
 ## Ownership / data handling
 
 Built by Junhan Wen and processed with Claude. Draft audit reports are
 confidential: do not commit real audit evidence, personal data, or credentials.
 `samples/` contains synthetic material only; `output/` and `data/` are
 git-ignored.
+
+Licence: TODO(owner): licence to be decided by Stichting SAAF.

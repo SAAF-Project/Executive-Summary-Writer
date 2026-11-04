@@ -20,6 +20,11 @@ data/
 !/skills/Skill description.md
 scripts/prompts_local.py
 
+# Local environment files with credentials
+.env
+.env.*
+!.env.example
+
 # Local provider configuration (endpoints, deployment names)
 scripts/openai_config.py
 
