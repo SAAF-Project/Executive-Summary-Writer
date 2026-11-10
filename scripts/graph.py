@@ -29,6 +29,7 @@ Each of the first four steps is the same small loop:
           propose -> ask (shows the proposals)
 """
 
+import json
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -36,6 +37,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+import four_eyes  # vendored, standard library only: signed human sign-off
 import prompts
 from prompts import StepSpec
 
@@ -74,6 +76,41 @@ class SummaryState(TypedDict, total=False):
     pos_points: List[str]  # for the "Positive aspects" box of the report
     neg_points: Dict[str, str]  # main finding -> recommendation
     neg_titles: Dict[str, str]  # main finding -> title of its finding in the audit material
+    # Four Eyes sign-off
+    approval: Dict[str, Any]  # signed approval of exactly the deliverable below
+    released: bool  # True only after the gate checked that approval
+
+
+# -------------------- Four Eyes: nothing leaves without a signed approval --------------------
+
+FINAL_STEP = "board_summary"
+
+
+def deliverable(state: SummaryState) -> str:
+    """The exact content the audit manager approves: what gets saved and put on the deck."""
+    return json.dumps(
+        {
+            "summary": state.get("summary", ""),
+            "pos_points": state.get("pos_points", []),
+            "neg_points": state.get("neg_points", {}),
+            "grade": state.get("grade", ""),
+            "tone": state.get("tone", ""),
+            "domain": state.get("domain", ""),
+            "process_risk": state.get("process_risk", ""),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+
+
+def release_final(gate: "four_eyes.Gate", state: SummaryState, approval: Any) -> dict:
+    """The only way out: checked in code against a signed approval of exactly this content.
+
+    Raises four_eyes.FourEyesError when the approval is missing, forged, for other
+    content, expired or reused. The model is never asked whether it was approved.
+    """
+    gate.require(FINAL_STEP, deliverable(state), approval)
+    return {"released": True}
 
 
 def confirmed_text(state: SummaryState) -> str:
@@ -106,8 +143,14 @@ def _choice(reply: str, options: Any) -> Optional[str]:
     return None
 
 
-def build_graph(llm: Any, checkpointer: Any = None):
-    """Compile the workflow. `llm` provides the Claude calls (see llm.ClaudeLLM)."""
+def build_graph(llm: Any, checkpointer: Any = None, gate: Any = None):
+    """Compile the workflow. `llm` provides the Claude calls (see llm.ClaudeLLM).
+
+    `gate` is a four_eyes.Gate. With a gate, the run ends with a final approval:
+    the audit manager types a phrase naming the exact summary, and only then is it
+    released. scripts/run.py always passes one. Without a gate the graph keeps its
+    old ending, for the existing unit tests only.
+    """
     graph = StateGraph(SummaryState)
 
     # -------------------- Steps 1-4: ask first, propose second --------------------
@@ -436,6 +479,49 @@ def build_graph(llm: Any, checkpointer: Any = None):
     graph.add_edge("challenge_ask", "confirm")
     graph.add_edge("confirm", "write_summary")
     graph.add_edge("write_summary", "summarise_findings")
-    graph.add_edge("summarise_findings", END)
+
+    if gate is None:
+        graph.add_edge("summarise_findings", END)
+        return graph.compile(checkpointer=checkpointer or InMemorySaver())
+
+    # -------------------- Four Eyes: final approval and release --------------------
+
+    def final_approval(state: SummaryState) -> dict:
+        content = deliverable(state)
+        # Show the person everything the approval covers (see deliverable()).
+        positives = "\n".join(f"- {p}" for p in state.get("pos_points", []))
+        findings = "\n".join(
+            f"- {f}\n  -> {r}" for f, r in state.get("neg_points", {}).items()
+        )
+        message = (
+            f"{state.get('summary', '')}\n\n"
+            f"Overall grade: {state.get('grade', '')}   Tone: {state.get('tone', '')}\n"
+            f"Domain: {state.get('domain', '')}   Process risk (gross): {state.get('process_risk', '')}\n\n"
+            f"Positive points:\n{positives or '- none'}\n\n"
+            f"Main findings and recommendations:\n{findings or '- none'}\n\n"
+            "Four eyes: nothing above is saved or put on the deck until you approve it, "
+            "exactly as shown.\n"
+            f"To approve, type: {gate.confirmation_phrase(content)}"
+        )
+        reply = interrupt({"step": "final_approval", "message": _with_ack(state, message)})
+        try:
+            # Decided in code. The approver is the logged-in person, not the reply.
+            approval = gate.approve(FINAL_STEP, content, str(reply))
+        except four_eyes.ApprovalRejected as exc:
+            return {"decision": "rejected", "ack": str(exc)}
+        return {"decision": "approved", "approval": approval.to_dict(), "ack": ""}
+
+    def release(state: SummaryState) -> dict:
+        return release_final(gate, state, state.get("approval"))
+
+    graph.add_node("final_approval", final_approval)
+    graph.add_node("release", release)
+    graph.add_edge("summarise_findings", "final_approval")
+    graph.add_conditional_edges(
+        "final_approval",
+        lambda state: "release" if state["decision"] == "approved" else "ask",
+        {"release": "release", "ask": "final_approval"},
+    )
+    graph.add_edge("release", END)
 
     return graph.compile(checkpointer=checkpointer or InMemorySaver())

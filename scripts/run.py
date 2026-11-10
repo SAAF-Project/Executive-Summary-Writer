@@ -15,6 +15,7 @@ model call with its input and output. `--replay` plays such a record back withou
 """
 
 import argparse
+import getpass
 import json
 import logging
 import sys
@@ -26,6 +27,7 @@ from typing import Optional
 import anthropic
 from langgraph.types import Command
 
+import four_eyes
 from graph import build_graph
 from llm import BaseLLM, ClaudeLLM
 from run_record import TracingLLM, save_trace
@@ -168,7 +170,18 @@ def main() -> int:
         print(f"[!] {exc}")
         return 1
 
-    app = build_graph(llm)
+    # Four Eyes: the approver is the logged-in OS user (a web app passes its session
+    # user instead). The signing key comes from FOUR_EYES_KEY and never reaches a prompt.
+    # Without a key the gate fails closed and nothing can be released.
+    try:
+        approver = getpass.getuser()
+        gate = four_eyes.Gate(
+            lambda: approver, log_path=args.output_dir / "four-eyes-log.jsonl"
+        )
+    except four_eyes.FourEyesError as exc:
+        print(f"[!] {exc}")
+        return 1
+    app = build_graph(llm, gate=gate)
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
     print(f"\nExecutive Summary Writer ({llm.name}). Type 'quit' to stop.")
 
@@ -233,6 +246,12 @@ def main() -> int:
         if trace["status"] != "completed" and (trace["conversation"] or llm.calls):
             save_trace(trace_file, trace)
             print(f"[+] Record of this run saved to {trace_file}")
+
+    if not result.get("released"):
+        # Belt and braces: never save or fill a deck without a checked approval.
+        print("[!] Four eyes: the summary was not approved. Nothing was saved.")
+        return 1
+    print(f"[+] Four eyes: approved by {result['approval']['approver']}, released.")
 
     print(
         f"\nConfirmed for the Executive Board summary:\n{result['confirmation']}\n"
