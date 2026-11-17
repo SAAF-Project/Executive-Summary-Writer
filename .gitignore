@@ -20,8 +20,22 @@ data/
 !/skills/Skill description.md
 scripts/prompts_local.py
 
+# Local environment files with credentials
+.env
+.env.*
+!.env.example
+
 # Local provider configuration (endpoints, deployment names)
 scripts/openai_config.py
 
 # Office lock files
 ~$*
+
+# Kept local, not published
+README copy.md
+/frontend/
+/samples/*.pptx
+scripts/*_agent.py
+/scripts/four_eyes/
+/tests/*
+!/tests/test_run.py

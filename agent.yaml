@@ -1,0 +1,33 @@
+# The Living Map manifest. Guide: SAAF-Project docs/conventions/agent-yaml.md
+# After merge, add this repo to repos.txt in SAAF-Project/saaf-living-map.
+name: Executive Summary Writer
+repo: SAAF-Project/Executive-Summary-Writer
+island: reporting
+maturity: ready   # building | ready | tested | improving
+category: Reporting
+language: Python
+depends_on: []
+tags: [executive-summary, board-reporting, IIA, langgraph]
+description: "Guides an audit manager through a structured preparation phase, then drafts the three-paragraph Executive Board summary of a finished audit report."
+
+# The approved mandate. Changing this requires a pull request.
+mandate:
+  purpose: >-
+    Turn a finished audit report and an audit manager's judgement calls (root
+    cause, relationships between findings, storyline, tone) into a draft
+    three-paragraph Executive Board summary, without deciding the narrative
+    itself.
+  allowed_tools: [read_audit_material, call_llm, write_report_deck, record_run]
+  forbidden_actions:
+    - action: change_own_config
+      rationale: Changes to this mandate go through a pull request.
+    - action: modify_source_data
+      rationale: The audit report and the audit manager's confirmed replies are evidence and must stay unchanged.
+    - action: bypass_preparation_phase
+      rationale: The agent must not write, or draft, a summary until root cause, relationships, storyline and tone have each been confirmed or explicitly skipped by the audit manager.
+    - action: present_output_as_final
+      rationale: The output is a draft for the audit manager to review and edit, never a final Board communication.
+  trusted_inputs: [audit_report, audit_manager_replies, synthetic_sample]
+  max_runtime_minutes: 30
+  human_approval_required_for: [reviewing and editing the generated summary before it is used in the Board report]
+  evidence_policy: cite_only_given_context

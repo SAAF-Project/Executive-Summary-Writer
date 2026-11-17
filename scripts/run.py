@@ -1,311 +1,42 @@
-"""Entry point: guides the audit manager through the preparation phase in the terminal, then writes
-the Executive Board summary. The output is a JSON file with the summary ("exe_summary"), the positive
-points ("pos_points", a list), the main findings with a recommendation each ("neg_points", finding
--> recommendation), the overall grade ("grade", A-D) and the two header values the audit manager chose
-("domain" and "process_risk"). For a report deck it also holds the information table of its findings
-("findings": title, risk and owner of each one, read from the finding slides without the model).
+"""Entry point: asks for the root cause, then drafts the Executive Board summary.
 
-    python scripts/run.py                                    # the sample .pptx report
-    python scripts/run.py report.docx
-    python scripts/run.py upload.bin --input-source-type xlsx
-    python scripts/run.py report.pptx --replay output/executive-summary_..._trace.json
-
-Next to the output, a record of the run is saved (see run_record.py): every question and reply, and every
-model call with its input and output. `--replay` plays such a record back without a model.
+Usage:
+    python scripts/run.py findings.txt
 """
 
 import argparse
-import json
-import logging
 import sys
-import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
-import anthropic
-from langgraph.types import Command
+from llm import write_summary
+from material import load_findings
 
-from graph import build_graph
-from llm import BaseLLM, ClaudeLLM
-from run_record import TracingLLM, save_trace
-from material import (
-    DEFAULT_SOURCE_TYPE,
-    SOURCE_TYPES,
-    default_source,
-    load_material,
-)
-
-logger = logging.getLogger(__name__)
-
-QUIT_WORDS = {"quit", "exit"}
-API_CHOICES = {
-    "1": "openai",
-    "openai": "openai",
-    "2": "claude",
-    "claude": "claude",
-    "3": "offline",
-    "offline": "offline",
-}
+QUESTION = "What is the root cause do you have in mind? "
 
 
-def _ask(message: str) -> str:
-    print(f"\n{message}\n")
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("findings_file", type=Path, help="A .txt file of findings")
+    parser.add_argument(
+        "--output", type=Path, default=None, help="Where to save the summary (.md)"
+    )
+    args = parser.parse_args(argv)
+
     try:
-        return input("> ").strip()
-    except EOFError:
-        return "quit"
-
-
-def _choose_api(preselected: Optional[str]) -> Optional[str]:
-    """Ask which API to use, unless it was given on the command line. Returns None when the user quits."""
-    if preselected:
-        return preselected
-    print(
-        "Which API do you want to use?\n  1. OpenAI\n  2. Claude\n"
-        "  3. Offline test (no API, assumed AI output)\n"
-    )
-    while True:
-        try:
-            choice = input("> ").strip().lower()
-        except EOFError:
-            return None
-        if choice in QUIT_WORDS:
-            return None
-        if choice in API_CHOICES:
-            return API_CHOICES[choice]
-        print("Please enter 1 for OpenAI, 2 for Claude or 3 for the offline test.")
-
-
-def _build_llm(api: str, replay: Optional[Path] = None) -> BaseLLM:
-    if replay:
-        from run_record import ReplayLLM
-
-        return ReplayLLM(replay)
-    if api == "openai":
-        from llm_openai import (
-            OpenAILLM,
-        )  # imported here so the Claude option does not need the OpenAI packages
-
-        return OpenAILLM()
-    if api == "offline":
-        from llm_offline import OfflineLLM
-
-        return OfflineLLM()
-    return ClaudeLLM()
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Executive Summary Writer")
-    parser.add_argument(
-        "files",
-        nargs="*",
-        type=Path,
-        help="Audit material. If omitted, the sample of the input source type is loaded",
-    )
-    parser.add_argument(
-        "--input-source-type",
-        choices=SOURCE_TYPES,
-        help="How to read the files. If omitted, taken from each file's extension; "
-        f"without files the default is {DEFAULT_SOURCE_TYPE}",
-    )
-    parser.add_argument(
-        "--api",
-        choices=["openai", "claude", "offline"],
-        help="API to use; asked at the start if omitted",
-    )
-    parser.add_argument(
-        "--replay",
-        type=Path,
-        metavar="TRACE",
-        help="Play back the model outputs of a saved record (..._trace.json); no API is used",
-    )
-    parser.add_argument(
-        "--request",
-        default="",
-        help='Your request, e.g. "3 paragraphs / 250 words, factual tone"',
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("./output"),
-        help="Folder for the saved summary",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Also log token usage per model call",
-    )
-    args = parser.parse_args()
-
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    if args.verbose:
-        logging.getLogger("llm").setLevel(logging.DEBUG)
-        logging.getLogger("llm_openai").setLevel(logging.DEBUG)
-
-    source_type = args.input_source_type
-    try:
-        if not args.files:
-            source_type = source_type or DEFAULT_SOURCE_TYPE
-            args.files = [default_source(source_type)]
-            print(f"No file given. Loading the sample: {args.files[0]}")
-        missing = [str(p) for p in args.files if not p.is_file()]
-        if missing:
-            print(f"[!] File not found: {', '.join(missing)}")
-            return 2
-        material = load_material(args.files, source_type)
-    except ValueError as exc:
-        print(f"[!] {exc}")
-        return 2
-
-    api = "offline" if args.replay else _choose_api(args.api)
-    if api is None:
-        print("Stopped. No summary was written.")
-        return 0
-    try:
-        llm = TracingLLM(_build_llm(api, args.replay))
-    except RuntimeError as exc:
+        findings = load_findings(args.findings_file)
+    except (OSError, ValueError) as exc:
         print(f"[!] {exc}")
         return 1
 
-    app = build_graph(llm)
-    config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-    print(f"\nExecutive Summary Writer ({llm.name}). Type 'quit' to stop.")
+    root_cause = input(QUESTION).strip()
+    summary = write_summary(findings, root_cause)
 
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    trace_file = args.output_dir / f"executive-summary_{stamp}_trace.json"
-    # the record of this run: what was asked and replied, and every model call
-    trace = {
-        "started": datetime.now().isoformat(timespec="seconds"),
-        "api": api,
-        "model": llm.name,
-        "files": [p.name for p in args.files],
-        "request": args.request,
-        "status": "incomplete",
-        "conversation": [],
-        "calls": llm.calls,
-    }
-
-    try:
-        result = app.invoke(
-            {"material": material, "request": args.request}, config
-        )
-        while "__interrupt__" in result:
-            question = result["__interrupt__"][0].value
-            reply = _ask(question["message"])
-            trace["conversation"].append({**question, "reply": reply})
-            if reply.lower() in QUIT_WORDS:
-                print("Stopped. No summary was written.")
-                return 0
-            result = app.invoke(Command(resume=reply), config)
-        trace["status"] = "completed"
-    except KeyboardInterrupt:
-        print("\n[!] Interrupted by user. No summary was written.")
-        return 130
-    except anthropic.AuthenticationError:
-        print(
-            "[!] Authentication failed. Set ANTHROPIC_API_KEY and run again."
-        )
-        return 1
-    except anthropic.RateLimitError:
-        print(
-            "[!] Rate limit reached after retries. Wait a moment and run again."
-        )
-        return 1
-    except anthropic.APIStatusError as exc:
-        print(f"[!] API error {exc.status_code}: {exc.message}")
-        return 1
-    except anthropic.APIConnectionError:
-        print(
-            "[!] Could not reach the Anthropic API. Check the network connection."
-        )
-        return 1
-    except RuntimeError as exc:
-        print(f"[!] {exc}")
-        return 1
-    except Exception as exc:
-        if not type(exc).__module__.startswith("openai"):
-            raise
-        print(f"[!] OpenAI API error: {exc}")
-        return 1
-    finally:
-        # a run that stopped early or failed keeps its record too
-        if trace["status"] != "completed" and (trace["conversation"] or llm.calls):
-            save_trace(trace_file, trace)
-            print(f"[+] Record of this run saved to {trace_file}")
-
-    print(
-        f"\nConfirmed for the Executive Board summary:\n{result['confirmation']}\n"
+    out_file = args.output or args.findings_file.with_name(
+        args.findings_file.stem + "_summary.md"
     )
-    output = {
-        "exe_summary": result["summary"],
-        "pos_points": result["pos_points"],
-        "neg_points": result["neg_points"],
-        "grade": result["grade"],
-        "domain": result["domain"],
-        "process_risk": result["process_risk"],
-    }
-    # a report deck: the title, risk and owner of each finding, as read from its finding slides
-    deck = next(
-        (
-            p
-            for p in args.files
-            if (source_type or p.suffix.lower().lstrip(".")) == "pptx"
-        ),
-        None,
-    )
-    if deck is not None:
-        from pptx import Presentation
-        from report_sections import read_finding_table
-
-        output["findings"] = read_finding_table(Presentation(str(deck)))
-    print(output["exe_summary"])
-    print(f"\nOverall grade: {output['grade']}")
-    print(f"Domain: {output['domain']}")
-    print(f"Process risk (gross): {output['process_risk']}")
-    print("\nPositive points:")
-    for point in output["pos_points"]:
-        print(f"- {point}")
-    print("\nNegative points and recommendations:")
-    for finding, recommendation in output["neg_points"].items():
-        print(f"- {finding}\n  -> {recommendation}")
-
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    out_file = args.output_dir / f"executive-summary_{stamp}.json"
-    out_file.write_text(
-        json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    print(f"\n[+] Saved to {out_file}")
-    save_trace(
-        trace_file,
-        {**trace, "confirmation": result["confirmation"], "output": output},
-    )
-    print(f"[+] Record of this run saved to {trace_file}")
-
-    # a report deck also gets the summary and the points on its own executive summary slide
-    if deck is not None:
-        from report_writer import write_summary_to_deck
-
-        deck_file = args.output_dir / f"{deck.stem}_summary_filled{deck.suffix}"
-        try:
-            number = write_summary_to_deck(
-                deck,
-                output["exe_summary"],
-                deck_file,
-                output["pos_points"],
-                output["neg_points"],
-                llm.name,
-                output["grade"],
-                output["domain"],
-                output["process_risk"],
-                result.get("neg_titles"),
-            )
-        except ValueError as exc:
-            print(f"[!] The summary was not put on the slide: {exc}")
-        else:
-            print(
-                f"[+] Summary, positive aspects and main findings written on slide {number} of {deck_file}"
-            )
+    out_file.write_text(summary + "\n", encoding="utf-8")
+    print(f"[+] Summary saved to {out_file}")
     return 0
 
 
